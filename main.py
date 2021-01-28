@@ -29,8 +29,6 @@ def run(domain, org='totvstechfin'):
 
     techfin_worksheet = sheet_utils.get_client()
 
-    consolidate_list = ['se1', 'se2', ]
-    compute_transformations = True  # need to force the old data to the stagings transformation.
 
     # Create slack handler
     slack_handler = SlackerLogHandler(os.environ["SLACK"], '#techfin-reprocess',  # "@rafael.rui",
