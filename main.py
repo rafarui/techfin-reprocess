@@ -29,7 +29,6 @@ def run(domain, org='totvstechfin'):
 
     techfin_worksheet = sheet_utils.get_client()
 
-
     # Create slack handler
     slack_handler = SlackerLogHandler(os.environ["SLACK"], '#techfin-reprocess',  # "@rafael.rui",
                                       username='TechFinBot')
@@ -109,7 +108,7 @@ def run(domain, org='totvstechfin'):
             logger.debug(f"processing {staging_name}")
             task_id = CDSStaging(login).process_data(staging_name, connector_name=connector_name, max_number_workers=16,
                                                      delete_target_folder=False, delete_realtime_records=False,
-                                                     recursive_processing=False)
+                                                     recursive_processing=False, auto_scaling=False)
             tasks += [task_id['data']['mdmId']]
 
         task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
