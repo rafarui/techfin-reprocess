@@ -1,4 +1,4 @@
-pycarol
+pycarol>=2.42.0
 gspread
 joblib
 slacker-log-handler
