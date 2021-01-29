@@ -1,3 +1,4 @@
 .env
 .vscode
 env_techfin_reprocess/
+__pycache__

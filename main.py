@@ -18,25 +18,25 @@ load_dotenv('.env', override=True)
 def run(domain, org='totvstechfin'):
     # avoid all tasks starting at the same time.
     time.sleep(round(3 + random.random() * 6, 2))
-    org = 'totvstechfin'
+    org = 'totvstechfindev'
     app_name = "techfinplatform"
-    app_version = '0.0.70'
+    app_version = '0.0.78'
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
 
-    dms = ['list','of', 'dms']
-    staging_list = ['list', 'of', 'stagings']
+    dms = ['arinvoiceinstallment','apinvoiceinstallment', 'arinvoicepayments','apinvoicepayments']
+    staging_list = ['se1_installments', 'se2_installments', 'fk1', 'fk2']
 
     techfin_worksheet = sheet_utils.get_client()
 
     # Create slack handler
-    slack_handler = SlackerLogHandler(os.environ["SLACK"], '#techfin-reprocess',  # "@rafael.rui",
-                                      username='TechFinBot')
-    slack_handler.setLevel(logging.INFO)
+    # slack_handler = SlackerLogHandler(os.environ["SLACK"], '#techfin-reprocess',  # "@rafael.rui",
+                                    #   username='TechFinBot')
+    # slack_handler.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    slack_handler.setFormatter(formatter)
+    # slack_handler.setFormatter(formatter)
     logger = logging.getLogger(domain)
-    logger.addHandler(slack_handler)
+    # logger.addHandler(slack_handler)
     logger.setLevel(logging.DEBUG)
     console = logging.StreamHandler()
     console.setLevel(logging.DEBUG)
