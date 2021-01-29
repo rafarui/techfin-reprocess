@@ -18,7 +18,7 @@ load_dotenv('.env', override=True)
 def run(domain, org='totvstechfin'):
     # avoid all tasks starting at the same time.
     time.sleep(round(3 + random.random() * 6, 2))
-    org = 'totvstechfindev'
+    org = 'totvstechfin'
     app_name = "techfinplatform"
     app_version = '0.0.78'
     connector_name = 'protheus_carol'

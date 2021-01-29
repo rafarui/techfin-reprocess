@@ -6,8 +6,10 @@ import random
 
 def get_client():
     # folder with creds /Users/rafarui/.config/gspread
-    gc = gspread.oauth()
-    sh = gc.open("status_techfin_reprocess_dev")
+    # gc = gspread.oauth()
+    gc = gspread.service_account()
+    sh = gc.open("status_techfin_reprocess")
+    # sh = gc.open_by_url("https://docs.google.com/spreadsheets/d/1fGM504vLd7ESBvVBXqwnGfd6e9f-D69PH11Ub6Q-Fpw/edit#gid=988132084")
     techfin_worksheet = sh.worksheet("status")
     return techfin_worksheet
 
