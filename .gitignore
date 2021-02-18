@@ -2,3 +2,6 @@
 .vscode
 env_techfin_reprocess/
 __pycache__
+.ipynb_checkpoints/
+Untitled.ipynb
+env/

@@ -20,12 +20,12 @@ def run(domain, org='totvstechfin'):
     time.sleep(round(3 + random.random() * 6, 2))
     org = 'totvstechfin'
     app_name = "techfinplatform"
-    app_version = '0.0.78'
+    app_version = '0.0.80'
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
 
-    dms = ['arinvoiceinstallment','apinvoiceinstallment', 'arinvoicepayments','apinvoicepayments']
-    staging_list = ['se1_installments', 'se2_installments', 'fk1', 'fk2']
+    dms = ['arinvoiceinstallment','apinvoiceinstallment', 'arinvoicepayments','apinvoicepayments', 'cfbankbalance']
+    staging_list = ['se1_installments', 'se2_installments', 'fk1', 'fk2', 'se8'] 
 
     techfin_worksheet = sheet_utils.get_client()
 
