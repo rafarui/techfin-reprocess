@@ -11,6 +11,7 @@ import logging
 from joblib import Parallel, delayed
 from itertools import chain
 from pycarol.exceptions import CarolApiResponseException
+from functions import misc
 
 
 def cancel_tasks(login, task_list, logger=None):
@@ -66,7 +67,7 @@ def track_tasks(login, task_list, do_not_retry=False, logger=None, callback=None
             callback()
 
 
-def drop_staging(login, staging_list,connector_name, logger=None):
+def drop_staging(login, staging_list, connector_name, logger=None):
     """
     Drop a list of stagings
 
@@ -92,7 +93,8 @@ def drop_staging(login, staging_list,connector_name, logger=None):
         stag = Staging(login)
 
         try:
-            r = stag.drop_staging(staging_name=i, connector_name=connector_name, )
+            r = stag.drop_staging(
+                staging_name=i, connector_name=connector_name, )
             tasks += [r['taskId']]
             logger.debug(f"dropping {i} - {r['taskId']}")
 
@@ -167,16 +169,19 @@ def drop_etls(login, etl_list):
         mdm_id = i['mdmId']
         try:
             # Delete drafts.
-            login.call_api(f'v2/etl/{mdm_id}', method='DELETE', params={'entitySpace': 'WORKING'})
+            login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
+                           params={'entitySpace': 'WORKING'})
         except Exception as e:
             pass
-        login.call_api(f'v2/etl/{mdm_id}', method='DELETE', params={'entitySpace': 'PRODUCTION'})
+        login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
+                       params={'entitySpace': 'PRODUCTION'})
 
 
 def par_processing(login, staging_name, connector_name, delete_realtime_records=False,
                    delete_target_folder=False):
     cds_stag = CDSStaging(login)
-    n_r = cds_stag.count(staging_name=staging_name, connector_name=connector_name)
+    n_r = cds_stag.count(staging_name=staging_name,
+                         connector_name=connector_name)
     if n_r > 5000000:
         worker_type = 'n1-highmem-16'
         max_number_workers = 16
@@ -251,25 +256,62 @@ def pause_etls(login, etl_list, connector_name, logger):
     conn = Connectors(login)
     for staging_name in etl_list:
         logger.debug(f'Pausing {staging_name} ETLs')
-        r[staging_name] = conn.pause_etl(connector_name=connector_name, staging_name=staging_name)
+        r[staging_name] = conn.pause_etl(
+            connector_name=connector_name, staging_name=staging_name)
 
     if not all(i['success'] for _, i in r.items()):
         logger.error(f'Some ETLs were not paused. {r}')
         raise ValueError(f'Some ETLs were not paused. {r}')
 
 
-def pause_dms(login, dm_list, connector_name):
+def pause_single_staging_etl(login, staging_name, connector_name, output_list, logger):
+
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+
+    conn = Connectors(login)
+    connector_id = conn.get_by_name(connector_name)['mdmId']
+    url = f'v1/etl/connector/{connector_id}/sourceEntity/{staging_name}/published'
+    all_etls = login.call_api(url, )
+
+    r = []
+    for etl in all_etls:
+        if len(set(output_list) - set(misc.unroll_list(list(misc.find_keys(etl, 'mdmParameterValues'))))) == 0:
+            mdm_id = etl['mdmId']
+            logger.info(f'pausing etl {mdm_id} for {staging_name}')
+
+            url = f'v1/etl/{mdm_id}/PRODUCTION/pause'
+            resp = login.call_api(url, method='PUT')
+
+            if not resp['success']:
+                logger.error(
+                    f'Problem starting ETL {connector_name}/{staging_name}\n {resp}')
+                raise ValueError(
+                    f'Problem starting ETL {connector_name}/{staging_name}\n {resp}')
+            r.append(resp)
+    return r
+
+
+def pause_dms(login, dm_list, connector_name, do_not_pause_staging_list=None):
+
+    do_not_pause_staging_list = do_not_pause_staging_list if do_not_pause_staging_list else [
+        '']
     conn = Connectors(login)
     mappings = conn.get_dm_mappings(connector_name=connector_name, )
-    mappings = [i['mdmId'] for i in mappings if
-                (i['mdmRunningState'] == 'RUNNING') and i['mdmMasterEntityName'] in dm_list]
+    mappings = mappings = [i['mdmId'] for i in mappings if
+                           (i['mdmRunningState'] == 'RUNNING') and
+                           (i['mdmMasterEntityName'] in dm_list) and
+                           (i['mdmStagingType'] not in do_not_pause_staging_list)
+                           ]
 
-    r = conn.pause_mapping(connector_name=connector_name, entity_mapping_id=mappings)
+    r = conn.pause_mapping(connector_name=connector_name,
+                           entity_mapping_id=mappings)
 
 
-def par_consolidate(login, staging_name, connector_name, compute_transformations=False):
+def par_consolidate(login, staging_name, connector_name, compute_transformations=False, auto_scaling=False):
     cds_stag = CDSStaging(login)
-    n_r = cds_stag.count(staging_name=staging_name, connector_name=connector_name)
+    n_r = cds_stag.count(staging_name=staging_name,
+                         connector_name=connector_name)
     if n_r > 5000000:
         worker_type = 'n1-highmem-16'
         max_number_workers = 16
@@ -279,21 +321,23 @@ def par_consolidate(login, staging_name, connector_name, compute_transformations
     number_shards = round(n_r / 100000) + 1
     number_shards = max(16, number_shards)
     task_id = cds_stag.consolidate(staging_name=staging_name, connector_name=connector_name, worker_type=worker_type,
-                                   compute_transformations=compute_transformations,
+                                   compute_transformations=compute_transformations, auto_scaling=auto_scaling,
                                    number_shards=number_shards, rehash_ids=True, max_number_workers=max_number_workers)
     return task_id
 
 
-def consolidate_stagings(login, connector_name, staging_list, n_jobs=5, compute_transformations=False, logger=None):
+def consolidate_stagings(login, connector_name, staging_list, n_jobs=5, compute_transformations=False,
+                         auto_scaling=False,
+                         logger=None):
     if logger is None:
         logger = logging.getLogger(login.domain)
 
     task_id = Parallel(n_jobs=n_jobs, backend='threading')(delayed(par_consolidate)(
         login, staging_name=i,
-        connector_name=connector_name,
+        connector_name=connector_name, auto_scaling=auto_scaling, 
         compute_transformations=compute_transformations
     )
-                                                           for i in staging_list)
+        for i in staging_list)
 
     task_list = [i['data']['mdmId'] for i in task_id]
 
@@ -306,7 +350,8 @@ def par_delete_golden(login, dm_list, n_jobs=5):
     def del_golden(dm_name, login):
         t = []
         dm_id = DataModel(login).get_by_name(dm_name)['mdmId']
-        task = login.call_api("v2/cds/rejected/clearData", method='POST', params={'entityTemplateId': dm_id})['taskId']
+        task = login.call_api("v2/cds/rejected/clearData", method='POST',
+                              params={'entityTemplateId': dm_id})['taskId']
         t += [task]
         cds_CDSGolden = CDSGolden(login)
         task = cds_CDSGolden.delete(dm_id=dm_id, )
@@ -314,7 +359,8 @@ def par_delete_golden(login, dm_list, n_jobs=5):
         t += [task['taskId'], ]
         return t
 
-    tasks = Parallel(n_jobs=n_jobs)(delayed(del_golden)(i, login) for i in dm_list)
+    tasks = Parallel(n_jobs=n_jobs)(delayed(del_golden)(i, login)
+                                    for i in dm_list)
     return list(chain(*tasks))
 
 
@@ -324,11 +370,13 @@ def par_delete_staging(login, staging_list, connector_name, n_jobs=5):
     def del_staging(staging_name, connector_name, login):
         t = []
         cds_ = CDSStaging(login)
-        task = cds_.delete(staging_name=staging_name, connector_name=connector_name)
+        task = cds_.delete(staging_name=staging_name,
+                           connector_name=connector_name)
         t += [task['taskId'], ]
         return t
 
-    tasks = Parallel(n_jobs=n_jobs)(delayed(del_staging)(i, connector_name, login) for i in staging_list)
+    tasks = Parallel(n_jobs=n_jobs)(delayed(del_staging)(
+        i, connector_name, login) for i in staging_list)
     return list(chain(*tasks))
 
 
@@ -343,8 +391,10 @@ def resume_process(login, connector_name, staging_name, logger=None, delay=1):
     # Play ETLs if any.
     resp = conn.play_etl(connector_id=connector_id, staging_name=staging_name)
     if not resp['success']:
-        logger.error(f'Problem starting ETL {connector_name}/{staging_name}\n {resp}')
-        raise ValueError(f'Problem starting ETL {connector_name}/{staging_name}\n {resp}')
+        logger.error(
+            f'Problem starting ETL {connector_name}/{staging_name}\n {resp}')
+        raise ValueError(
+            f'Problem starting ETL {connector_name}/{staging_name}\n {resp}')
 
     # Play mapping if any.
     mappings_ = check_mapping(login, connector_name, staging_name, )
