@@ -134,11 +134,13 @@ def run_custom_pipeline(login, connector_name, logger):
         time.sleep(120)
 
         for staging_name in stagings:
-            logger.debug(f"processing {staging_name}")
-            task_id = CDSStaging(login).process_data(staging_name, connector_name=connector_name, max_number_workers=16,
-                                                     delete_target_folder=False, delete_realtime_records=False,
-                                                     recursive_processing=False, auto_scaling=False)
-            tasks += [task_id['data']['mdmId']]
+
+            if not carol_task.check_lookup(login, staging_name=staging_name, connector_name=connector_name):
+                logger.debug(f"processing {staging_name}")
+                task_id = CDSStaging(login).process_data(staging_name, connector_name=connector_name, max_number_workers=16,
+                                                        delete_target_folder=False, delete_realtime_records=False,
+                                                        recursive_processing=False, auto_scaling=False)
+                tasks += [task_id['data']['mdmId']]
 
         task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
 

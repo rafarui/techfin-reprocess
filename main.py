@@ -17,8 +17,8 @@ load_dotenv('.env', override=True)
 
 def run(domain, org='totvstechfin'):
     # avoid all tasks starting at the same time.
-    time.sleep(round(3 + random.random() * 6, 2))
-    org = 'totvstechfinstaging'
+    time.sleep(round(1 + random.random() * 6, 2))
+    org = 'totvstechfindev'
     app_name = "techfinplatform"
     app_version = '0.1.0'
     connector_name = 'protheus_carol'
@@ -44,34 +44,43 @@ def run(domain, org='totvstechfin'):
         'sd1_consulta', 'sd1_dados', 'sd1_devolution',
         'sd1_else', 'se1_installments', 'se1_invoice', 'se1_payments',
         'se1_payments_abatimentos', 'se2_installments',  'se2_invoice',
-        'se2_payments', 'se2_payments_abatimentos'
+        'se2_payments', 'se2_payments_abatimentos',
+        'se1_decresc', 'se1_acresc', 'se2_decresc', 'se2_acresc'
     ]
 
     to_del_dms = ['apinvoiceaccounting',
-               'apinvoice',
-               'arinvoice',
-               'arinvoiceinstallment',
-               'arinvoicebra',
-               'arinvoiceaccounting',
-               'apinvoiceinstallment',
-               'apinvoicebra',
-               'arinvoiceorigin',
-               'arinvoicepartner']
+                  'apinvoice',
+                  'arinvoice',
+                  'arinvoiceinstallment',
+                  'arinvoicebra',
+                  'arinvoiceaccounting',
+                  'apinvoiceinstallment',
+                  'apinvoicebra',
+                  'arinvoiceorigin',
+                  'arinvoicepartner']
 
     do_not_pause_staging_list = [
         'fk5_estorno_transferencia_pagamento', 'fkd_1',  'fkd_deletado',
         'fk1', 'fk5_transferencia', 'sea_1_frv_descontado_deletado_invoicepayment',
-        'sea_1_frv_descontado_naodeletado_invoicepayment', 'se1_acresc',
-        'se1_decresc',  'fk2', 'se2_decresc', 'se2_acresc']
+        'sea_1_frv_descontado_naodeletado_invoicepayment', 'fk2', ]
 
-    pause_etl_stagings = {'se1': {'se1_installments',
-                                  'se1_invoice',
-                                  'se1_payments',
-                                  'se1_payments_abatimentos'},
-                          'se2': {'se2_installments',
-                                  'se2_invoice',
-                                  'se2_payments',
-                                  'se2_payments_abatimentos'}}
+    pause_etl_stagings = {'se1': [
+        {'se1_installments',
+         'se1_invoice',
+         'se1_payments',
+         'se1_payments_abatimentos'},
+        {'se1_decresc', },
+        {'se1_acresc', }
+    ],
+        'se2': [
+        {'se2_installments',
+         'se2_invoice',
+         'se2_payments',
+         'se2_payments_abatimentos'},
+        {'se2_decresc', },
+        {'se2_acresc', }
+
+    ]}
 
     # need to force the old data to the stagings transformation.
     compute_transformations = True
@@ -105,7 +114,6 @@ def run(domain, org='totvstechfin'):
 
     dag = list(reduce(set.union, custom_pipeline.get_dag()))
     dms = [i.replace('DM_', '') for i in dag if i.startswith('DM_')]
-    # staging_list = [i for i in dag if not i.startswith('DM_')]
 
     try:
         current_version = carol_apps.get_app_version(
@@ -135,7 +143,7 @@ def run(domain, org='totvstechfin'):
             techfin_worksheet, current_cell.row, app_version)
         sheet_utils.update_status(techfin_worksheet, current_cell.row, "Done")
         sheet_utils.update_end_time(techfin_worksheet, current_cell.row)
-        return
+        # return
 
     if fail:
         sheet_utils.update_status(techfin_worksheet, current_cell.row,
@@ -152,15 +160,16 @@ def run(domain, org='totvstechfin'):
         carol_task.cancel_tasks(login, pross_task)
 
     # pause ETLs.
-    for key, value in pause_etl_stagings.items():
-        try:
-            carol_task.pause_single_staging_etl(
-                login=login, staging_name=key, connector_name=connector_name, output_list=value, logger=logger
-            )
-        except:
-            sheet_utils.update_status(techfin_worksheet, current_cell.row,
-                                      'failed - stopping ETLs')
-            return
+    for key, values in pause_etl_stagings.items():
+        for value in values:
+            try:
+                carol_task.pause_single_staging_etl(
+                    login=login, staging_name=key, connector_name=connector_name, output_list=value, logger=logger
+                )
+            except:
+                sheet_utils.update_status(techfin_worksheet, current_cell.row,
+                                        'failed - stopping ETLs')
+                return
 
     # pause mappings.
     carol_task.pause_dms(login, dm_list=dms, connector_name=connector_name,
@@ -197,7 +206,7 @@ def run(domain, org='totvstechfin'):
     try:
         task_list, fail = carol_task.track_tasks(
             login, task_list, logger=logger)
-    except Exception as e:
+    except:
         sheet_utils.update_status(
             techfin_worksheet, current_cell.row, "failed - delete stagings")
         logger.error("error after delete DMs", exc_info=1)
@@ -211,7 +220,8 @@ def run(domain, org='totvstechfin'):
     # delete DMs
     sheet_utils.update_status(
         techfin_worksheet, current_cell.row, "running - delete DMs")
-    task_list = carol_task.par_delete_golden(login, dm_list=to_del_dms, n_jobs=1)
+    task_list = carol_task.par_delete_golden(
+        login, dm_list=to_del_dms, n_jobs=1)
     try:
         task_list, fail = carol_task.track_tasks(
             login, task_list, logger=logger)
@@ -242,7 +252,6 @@ def run(domain, org='totvstechfin'):
         logger.error("error after processing")
         return
 
-
     logger.info(f"Finished all process {domain}")
     sheet_utils.update_status(techfin_worksheet, current_cell.row, "Done")
     sheet_utils.update_end_time(techfin_worksheet, current_cell.row)
@@ -253,27 +262,27 @@ def run(domain, org='totvstechfin'):
 if __name__ == "__main__":
     techfin_worksheet = sheet_utils.get_client()
 
-    run("tenant3e1809635d7911ea836d662e6095e25f")
+    run("protheusdev")
 
-    has_tenant = [1, 2, 3]
-    while len(has_tenant) > 1:
-        table = techfin_worksheet.get_all_records()
-        skip_status = ['done', 'failed', 'running',
-                       'installing', 'reprocessing', 'wait']
-        to_process = [t['environmentName (tenantID)'].strip() for t in table
-                      if t.get('environmentName (tenantID)', None) is not None
-                      and t.get('environmentName (tenantID)', 'None') != ''
-                      and not any(i in t.get('Status', '').lower().strip() for i in skip_status)
-                      ]
+    # has_tenant = [1, 2, 3]
+    # while len(has_tenant) > 1:
+    #     table = techfin_worksheet.get_all_records()
+    #     skip_status = ['done', 'failed', 'running',
+    #                    'installing', 'reprocessing', 'wait']
+    #     to_process = [t['environmentName (tenantID)'].strip() for t in table
+    #                   if t.get('environmentName (tenantID)', None) is not None
+    #                   and t.get('environmentName (tenantID)', 'None') != ''
+    #                   and not any(i in t.get('Status', '').lower().strip() for i in skip_status)
+    #                   ]
 
-        has_tenant = [i for i in table if i['Status']
-                      == '' or i['Status'] == 'wait']
-        print(
-            f"there are {len(to_process)} to process and {len(has_tenant)} waiting")
+    #     has_tenant = [i for i in table if i['Status']
+    #                   == '' or i['Status'] == 'wait']
+    #     print(
+    #         f"there are {len(to_process)} to process and {len(has_tenant)} waiting")
 
-        pool = multiprocessing.Pool(5)
-        pool.map(run, to_process)
-        pool.close()
-        pool.join()
+    #     pool = multiprocessing.Pool(5)
+    #     pool.map(run, to_process)
+    #     pool.close()
+    #     pool.join()
 
-        time.sleep(240)
+    #     time.sleep(240)

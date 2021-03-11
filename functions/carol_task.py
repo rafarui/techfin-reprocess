@@ -433,3 +433,9 @@ def cancel_task_subprocess(login):
     pross_task = [i['mdmId'] for i in pross_tasks]
     if pross_task:
         cancel_tasks(login, pross_task)
+
+
+
+def check_lookup(login, staging_name, connector_name):
+    return Staging(login).get_schema(staging_name=staging_name,
+                                       connector_name=connector_name, )['mdmLookupTable']
