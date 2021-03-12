@@ -12,15 +12,18 @@ def get_dag():
 
     # Aps
     rel['se2_invoice'] = ['se2', ]
+
+    rel['cvd_contas_avaliadas'] = ['cvd']
+
     rel['se2_payments'] = ['se2', 'DM_apinvoiceinstallment', ]
 
     rel['DM_apinvoicepayments'] = ['se2_payments_abatimentos',
                                    'DM_apinvoiceinstallment',
-                                   'se2_payments', 
-                                   'se2_acresc','se2_decresc']
+                                   'se2_payments',
+                                   'se2_acresc', 'se2_decresc']
 
-    rel['se2_decresc'] = [ 'se2', 'DM_apinvoiceinstallment', ]
-    rel['se2_acresc'] = [ 'se2', 'DM_apinvoiceinstallment', ]
+    rel['se2_decresc'] = ['se2', 'DM_apinvoiceinstallment', ]
+    rel['se2_acresc'] = ['se2', 'DM_apinvoiceinstallment', ]
 
     rel['se2_payments_abatimentos'] = ['se2', 'DM_apinvoiceinstallment', ]
 
@@ -42,12 +45,15 @@ def get_dag():
         'sf1_consulta',
         'DM_apinvoice',
         'sd1_consulta',
+        'cvd_contas_avaliadas'
     ]
 
     rel['cv3_entrada_debitos'] = [
         'sf1_consulta',
         'DM_apinvoice',
-        'sd1_consulta', ]
+        'sd1_consulta',
+        'cvd_contas_avaliadas'
+    ]
 
     rel['sf1_consulta'] = ['sf1']
     rel['sd1_consulta'] = ['sd1']
@@ -70,13 +76,18 @@ def get_dag():
     rel['cv3_saida_debitos'] = [
         'sf2_consulta',
         'DM_arinvoice',
+        'cvd_contas_avaliadas'
     ]
 
     rel['DM_arinvoiceaccounting'] = [
-        'cv3_saida_creditos', 'DM_arinvoice', 'cv3_saida_debitos']
+        'cv3_saida_creditos', 'DM_arinvoice', 'cv3_saida_debitos'
+    ]
+
     rel['cv3_saida_creditos'] = [
         'sf2_consulta',
-        'DM_arinvoice', ]
+        'DM_arinvoice',
+        'cvd_contas_avaliadas'
+    ]
 
     rel['DM_arinvoicepartner'] = ['DM_arinvoice', 'ar1_2']
 
@@ -90,12 +101,12 @@ def get_dag():
     rel['DM_arinvoicepayments'] = ['DM_arinvoiceinstallment',
                                    'se1_payments_abatimentos',
                                    'se1_payments',
-                                    'se1_decresc',
-                                     'se1_acresc',
+                                   'se1_decresc',
+                                   'se1_acresc',
                                    ]
 
-    rel['se1_decresc'] = [ 'se1', 'DM_arinvoiceinstallment', ]
-    rel['se1_acresc'] = [ 'se1', 'DM_arinvoiceinstallment', ]
+    rel['se1_decresc'] = ['se1', 'DM_arinvoiceinstallment', ]
+    rel['se1_acresc'] = ['se1', 'DM_arinvoiceinstallment', ]
 
     rel['DM_arinvoiceinstallment'] = ['DM_arinvoice', 'se1_installments']
     rel['DM_arinvoice'] = ['se1_invoice']
@@ -138,7 +149,7 @@ def run_custom_pipeline(login, connector_name, logger):
 
         for staging_name in stagings:
             _ = carol_task.resume_process(login, connector_name=connector_name,
-                                                  staging_name=staging_name, logger=logger, delay=1)
+                                          staging_name=staging_name, logger=logger, delay=1)
         # wait for play.
         time.sleep(120)
 
@@ -147,8 +158,8 @@ def run_custom_pipeline(login, connector_name, logger):
             if not carol_task.check_lookup(login, staging_name=staging_name, connector_name=connector_name):
                 logger.debug(f"processing {staging_name}")
                 task_id = CDSStaging(login).process_data(staging_name, connector_name=connector_name, max_number_workers=16,
-                                                        delete_target_folder=False, delete_realtime_records=False,
-                                                        recursive_processing=False, auto_scaling=False)
+                                                         delete_target_folder=False, delete_realtime_records=False,
+                                                         recursive_processing=False, auto_scaling=False)
                 tasks += [task_id['data']['mdmId']]
 
         _, fail = carol_task.track_tasks(login, tasks, logger=logger)

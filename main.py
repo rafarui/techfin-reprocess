@@ -37,6 +37,7 @@ def run(domain, org='totvstechfin'):
         'sf2',
         'sf1',
         'sd1',
+        'cvd'
     ]
 
     to_del_staging = [
@@ -45,7 +46,8 @@ def run(domain, org='totvstechfin'):
         'sd1_else', 'se1_installments', 'se1_invoice', 'se1_payments',
         'se1_payments_abatimentos', 'se2_installments',  'se2_invoice',
         'se2_payments', 'se2_payments_abatimentos',
-        'se1_decresc', 'se1_acresc', 'se2_decresc', 'se2_acresc'
+        'se1_decresc', 'se1_acresc', 'se2_decresc', 'se2_acresc',
+        'cvd_else','cvd_contas_avaliadas',
     ]
 
     to_del_dms = ['apinvoiceaccounting',
