@@ -18,7 +18,7 @@ load_dotenv('.env', override=True)
 def run(domain, org='totvstechfin'):
     # avoid all tasks starting at the same time.
     time.sleep(round(1 + random.random() * 6, 2))
-    org = 'totvstechfindev'
+    org = 'totvstechfin'
     app_name = "techfinplatform"
     app_version = '0.1.0'
     connector_name = 'protheus_carol'
@@ -143,7 +143,7 @@ def run(domain, org='totvstechfin'):
             techfin_worksheet, current_cell.row, app_version)
         sheet_utils.update_status(techfin_worksheet, current_cell.row, "Done")
         sheet_utils.update_end_time(techfin_worksheet, current_cell.row)
-        # return
+        return
 
     if fail:
         sheet_utils.update_status(techfin_worksheet, current_cell.row,
@@ -225,7 +225,7 @@ def run(domain, org='totvstechfin'):
     try:
         task_list, fail = carol_task.track_tasks(
             login, task_list, logger=logger)
-    except Exception as e:
+    except:
         sheet_utils.update_status(
             techfin_worksheet, current_cell.row, "failed - delete DMs")
         logger.error("error after delete DMs", exc_info=1)
@@ -262,27 +262,27 @@ def run(domain, org='totvstechfin'):
 if __name__ == "__main__":
     techfin_worksheet = sheet_utils.get_client()
 
-    run("protheusdev")
+    # run("protheusdev")
 
-    # has_tenant = [1, 2, 3]
-    # while len(has_tenant) > 1:
-    #     table = techfin_worksheet.get_all_records()
-    #     skip_status = ['done', 'failed', 'running',
-    #                    'installing', 'reprocessing', 'wait']
-    #     to_process = [t['environmentName (tenantID)'].strip() for t in table
-    #                   if t.get('environmentName (tenantID)', None) is not None
-    #                   and t.get('environmentName (tenantID)', 'None') != ''
-    #                   and not any(i in t.get('Status', '').lower().strip() for i in skip_status)
-    #                   ]
+    has_tenant = [1, 2, 3]
+    while len(has_tenant) > 1:
+        table = techfin_worksheet.get_all_records()
+        skip_status = ['done', 'failed', 'running',
+                       'installing', 'reprocessing', 'wait']
+        to_process = [t['environmentName (tenantID)'].strip() for t in table
+                      if t.get('environmentName (tenantID)', None) is not None
+                      and t.get('environmentName (tenantID)', 'None') != ''
+                      and not any(i in t.get('Status', '').lower().strip() for i in skip_status)
+                      ]
 
-    #     has_tenant = [i for i in table if i['Status']
-    #                   == '' or i['Status'] == 'wait']
-    #     print(
-    #         f"there are {len(to_process)} to process and {len(has_tenant)} waiting")
+        has_tenant = [i for i in table if i['Status']
+                      == '' or i['Status'] == 'wait']
+        print(
+            f"there are {len(to_process)} to process and {len(has_tenant)} waiting")
 
-    #     pool = multiprocessing.Pool(5)
-    #     pool.map(run, to_process)
-    #     pool.close()
-    #     pool.join()
+        pool = multiprocessing.Pool(5)
+        pool.map(run, to_process)
+        pool.close()
+        pool.join()
 
-    #     time.sleep(240)
+        time.sleep(240)

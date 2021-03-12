@@ -16,7 +16,11 @@ def get_dag():
 
     rel['DM_apinvoicepayments'] = ['se2_payments_abatimentos',
                                    'DM_apinvoiceinstallment',
-                                   'se2_payments', ]
+                                   'se2_payments', 
+                                   'se2_acresc','se2_decresc']
+
+    rel['se2_decresc'] = [ 'se2', 'DM_apinvoiceinstallment', ]
+    rel['se2_acresc'] = [ 'se2', 'DM_apinvoiceinstallment', ]
 
     rel['se2_payments_abatimentos'] = ['se2', 'DM_apinvoiceinstallment', ]
 
@@ -86,7 +90,12 @@ def get_dag():
     rel['DM_arinvoicepayments'] = ['DM_arinvoiceinstallment',
                                    'se1_payments_abatimentos',
                                    'se1_payments',
+                                    'se1_decresc',
+                                     'se1_acresc',
                                    ]
+
+    rel['se1_decresc'] = [ 'se1', 'DM_arinvoiceinstallment', ]
+    rel['se1_acresc'] = [ 'se1', 'DM_arinvoiceinstallment', ]
 
     rel['DM_arinvoiceinstallment'] = ['DM_arinvoice', 'se1_installments']
     rel['DM_arinvoice'] = ['se1_invoice']
@@ -128,7 +137,7 @@ def run_custom_pipeline(login, connector_name, logger):
             pass
 
         for staging_name in stagings:
-            mappings_ = carol_task.resume_process(login, connector_name=connector_name,
+            _ = carol_task.resume_process(login, connector_name=connector_name,
                                                   staging_name=staging_name, logger=logger, delay=1)
         # wait for play.
         time.sleep(120)
@@ -142,7 +151,7 @@ def run_custom_pipeline(login, connector_name, logger):
                                                         recursive_processing=False, auto_scaling=False)
                 tasks += [task_id['data']['mdmId']]
 
-        task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
+        _, fail = carol_task.track_tasks(login, tasks, logger=logger)
 
         if fail:
             return True
