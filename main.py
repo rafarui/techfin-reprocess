@@ -20,7 +20,7 @@ def run(domain, org='totvstechfin'):
     time.sleep(round(1 + random.random() * 6, 2))
     org = 'totvstechfin'
     app_name = "techfinplatform"
-    app_version = '0.1.0'
+    app_version = '0.2.0'
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
 
@@ -264,7 +264,7 @@ def run(domain, org='totvstechfin'):
 if __name__ == "__main__":
     techfin_worksheet = sheet_utils.get_client()
 
-    # run("protheusdev")
+    # run("tenant3e1809635d7911ea836d662e6095e25f")
 
     has_tenant = [1, 2, 3]
     while len(has_tenant) > 1:
