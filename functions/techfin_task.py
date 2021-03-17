@@ -77,4 +77,17 @@ def delete_payments(tenant):
     return r
 
 
+def delete_invoice_accountings(tenant):
+
+    uuid_tenant = get_guid(tenant)
+    bearer_token = os.environ['TOKEN_TECHFIN']
+    api = f'https://cashflow.totvs.app/provisioner/api/v1/carol-sync-monitoring/{uuid_tenant}/delete-invoice-accountings'
+    header = {"Authorization": f"Bearer {bearer_token}", 'accept': '/' ,"content-type": 'application/json'}
+
+    session = retry_session(method_whitelist=frozenset(['POST']),)
+    r = session.post(url=api, headers=header, )
+
+    return r
+
+
 

@@ -178,6 +178,18 @@ def run(domain, org='totvstechfin'):
                          do_not_pause_staging_list=do_not_pause_staging_list)
     time.sleep(round(10 + random.random() * 6, 2))  # pause have affect
 
+
+    # Delete all invoice-accountings from techfin
+
+    sheet_utils.update_status(techfin_worksheet, current_cell.row, "running - delete invoice-accountings techfin")
+    try:
+        res = techfin_task.delete_invoice_accountings(login.domain)
+    except Exception as e:
+        sheet_utils.update_status(techfin_worksheet, current_cell.row, "failed - delete invoice-accountings techfin")
+        logger.error("error after delete invoice-accountings techfin", exc_info=1)
+        return
+
+
     # consolidate
     sheet_utils.update_status(
         techfin_worksheet, current_cell.row, "running - consolidate")
