@@ -108,7 +108,7 @@ def get_dag():
                                    'fk5_estorno_transferencia_pagamento',
                                    'fk1', 'fk5_transferencia',
                                    'sea_1_frv_descontado_naodeletado_invoicepayment',
-                                   'fkd_1'
+                                   'fkd_1',
                                    'sea_1_frv_descontado_deletado_invoicepayment',
                                    ]
 
