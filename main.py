@@ -18,7 +18,7 @@ load_dotenv('.env', override=True)
 def run(domain, org='totvstechfin'):
     # avoid all tasks starting at the same time.
     time.sleep(round(1 + random.random() * 6, 2))
-    org = 'totvstechfin'
+    org = org
     app_name = "techfinplatform"
     app_version = '0.2.0'
     connector_name = 'protheus_carol'
@@ -37,7 +37,16 @@ def run(domain, org='totvstechfin'):
         'sf2',
         'sf1',
         'sd1',
-        'cvd'
+        'cvd',
+        'fk2', 
+        'fkd_deletado', 
+        'fk5_estorno_transferencia_pagamento', 
+        'fk1', 
+        'fk5_transferencia',
+        'sea_1_frv_descontado_naodeletado_invoicepayment',
+        'fkd_1', 
+        'sea_1_frv_descontado_deletado_invoicepayment',
+
     ]
 
     to_del_staging = [
@@ -47,42 +56,44 @@ def run(domain, org='totvstechfin'):
         'se1_payments_abatimentos', 'se2_installments',  'se2_invoice',
         'se2_payments', 'se2_payments_abatimentos',
         'se1_decresc', 'se1_acresc', 'se2_decresc', 'se2_acresc',
-        'cvd_else','cvd_contas_avaliadas',
+        'cvd_else', 'cvd_contas_avaliadas', 
     ]
 
     to_del_dms = ['apinvoiceaccounting',
                   'apinvoice',
                   'arinvoice',
                   'arinvoiceinstallment',
+                  'apinvoicepayments',
                   'arinvoicebra',
                   'arinvoiceaccounting',
                   'apinvoiceinstallment',
                   'apinvoicebra',
                   'arinvoiceorigin',
-                  'arinvoicepartner']
+                  'arinvoicepartner',
+                  'arinvoicepayments',
 
-    do_not_pause_staging_list = [
-        'fk5_estorno_transferencia_pagamento', 'fkd_1',  'fkd_deletado',
-        'fk1', 'fk5_transferencia', 'sea_1_frv_descontado_deletado_invoicepayment',
-        'sea_1_frv_descontado_naodeletado_invoicepayment', 'fk2', ]
+                  ]
 
-    pause_etl_stagings = {'se1': [
-        {'se1_installments',
-         'se1_invoice',
-         'se1_payments',
-         'se1_payments_abatimentos'},
-        {'se1_decresc', },
-        {'se1_acresc', }
-    ],
+    do_not_pause_staging_list = None
+
+    pause_etl_stagings = {
+        'se1': [
+            {'se1_installments',
+             'se1_invoice',
+             'se1_payments',
+             'se1_payments_abatimentos'},
+            {'se1_decresc', },
+            {'se1_acresc', }
+        ],
         'se2': [
-        {'se2_installments',
-         'se2_invoice',
-         'se2_payments',
-         'se2_payments_abatimentos'},
-        {'se2_decresc', },
-        {'se2_acresc', }
+            {'se2_installments',
+             'se2_invoice',
+             'se2_payments',
+             'se2_payments_abatimentos'},
+            {'se2_decresc', },
+            {'se2_acresc', }
 
-    ]}
+        ]}
 
     # need to force the old data to the stagings transformation.
     compute_transformations = True
@@ -170,7 +181,7 @@ def run(domain, org='totvstechfin'):
                 )
             except:
                 sheet_utils.update_status(techfin_worksheet, current_cell.row,
-                                        'failed - stopping ETLs')
+                                          'failed - stopping ETLs')
                 return
 
     # pause mappings.
@@ -178,17 +189,20 @@ def run(domain, org='totvstechfin'):
                          do_not_pause_staging_list=do_not_pause_staging_list)
     time.sleep(round(10 + random.random() * 6, 2))  # pause have affect
 
-
     # Delete all invoice-accountings from techfin
 
-    sheet_utils.update_status(techfin_worksheet, current_cell.row, "running - delete invoice-accountings techfin")
-    try:
-        res = techfin_task.delete_invoice_accountings(login.domain)
-    except Exception as e:
-        sheet_utils.update_status(techfin_worksheet, current_cell.row, "failed - delete invoice-accountings techfin")
-        logger.error("error after delete invoice-accountings techfin", exc_info=1)
-        return
-
+    sync_type = sheet_utils.get_sync_type(techfin_worksheet, current_cell.row)
+    if 'painel' in sync_type.lower().strip():
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell.row, "running - delete invoice-accountings techfin")
+        try:
+            res = techfin_task.delete_invoice_accountings(login.domain)
+        except Exception as e:
+            sheet_utils.update_status(
+                techfin_worksheet, current_cell.row, "failed - delete invoice-accountings techfin")
+            logger.error(
+                "error after delete invoice-accountings techfin", exc_info=1)
+            return
 
     # consolidate
     sheet_utils.update_status(
