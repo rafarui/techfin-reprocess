@@ -97,7 +97,7 @@ def run(domain, org='totvstechfin'):
 
     # need to force the old data to the stagings transformation.
     compute_transformations = True
-    auto_scaling = False
+    auto_scaling = True
 
     # Create slack handler
     slack_handler = SlackerLogHandler(os.environ["SLACK"], '#techfin-reprocess',  # "@rafael.rui",
