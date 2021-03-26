@@ -20,11 +20,8 @@ def get_dag():
     rel['DM_apinvoicepayments'] = ['se2_payments_abatimentos',
                                    'DM_apinvoiceinstallment',
                                    'se2_payments',
-                                   'se2_acresc', 'se2_decresc', 'fk2']
+                                   'fk2']
     rel['fk2'] = ['DM_apinvoiceinstallment']
-
-    rel['se2_decresc'] = ['se2', 'DM_apinvoiceinstallment', ]
-    rel['se2_acresc'] = ['se2', 'DM_apinvoiceinstallment', ]
 
     rel['se2_payments_abatimentos'] = ['se2', 'DM_apinvoiceinstallment', ]
 
@@ -102,9 +99,7 @@ def get_dag():
     rel['DM_arinvoicepayments'] = ['DM_arinvoiceinstallment',
                                    'se1_payments_abatimentos',
                                    'se1_payments',
-                                   'se1_decresc',
-                                   'se1_acresc',
-                                   'fkd_deletado', 
+                                   'fkd_deletado',
                                    'fk5_estorno_transferencia_pagamento',
                                    'fk1', 'fk5_transferencia',
                                    'sea_1_frv_descontado_naodeletado_invoicepayment',
@@ -112,16 +107,15 @@ def get_dag():
                                    'sea_1_frv_descontado_deletado_invoicepayment',
                                    ]
 
-    rel['sea_1_frv_descontado_deletado_invoicepayment'] = ['DM_arinvoiceinstallment', ]
+    rel['sea_1_frv_descontado_deletado_invoicepayment'] = [
+        'DM_arinvoiceinstallment', ]
     rel['fkd_1'] = ['DM_arinvoiceinstallment', ]
-    rel['sea_1_frv_descontado_naodeletado_invoicepayment'] = ['DM_arinvoiceinstallment', ]
+    rel['sea_1_frv_descontado_naodeletado_invoicepayment'] = [
+        'DM_arinvoiceinstallment', ]
     rel['fk5_transferencia'] = ['DM_arinvoiceinstallment', ]
     rel['fkd_deletado'] = ['DM_arinvoiceinstallment', ]
     rel['fk1'] = ['DM_arinvoiceinstallment', ]
     rel['fk5_estorno_transferencia_pagamento'] = ['DM_arinvoiceinstallment', ]
-
-    rel['se1_decresc'] = ['se1', 'DM_arinvoiceinstallment', ]
-    rel['se1_acresc'] = ['se1', 'DM_arinvoiceinstallment', ]
 
     rel['DM_arinvoiceinstallment'] = ['DM_arinvoice', 'se1_installments']
     rel['DM_arinvoice'] = ['se1_invoice']

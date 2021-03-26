@@ -100,7 +100,7 @@ def drop_staging(login, staging_list, connector_name, logger=None):
 
         except CarolApiResponseException as e:
             if 'SCHEMA_NOT_FOUND' in str(e):
-                logger.debug(f"{i} a;ready dropped.")
+                logger.debug(f"{i} already dropped.")
                 continue
             else:
                 logger.error("error dropping staging", exc_info=1)
@@ -152,6 +152,47 @@ def get_all_etls(login, connector_name):
     etls = login.call_api(f'v1/etl/connector/{connector_id}', method='GET')
     return etls
 
+
+def drop_single_etl(login, staging_name, connector_name, output_list, logger):
+    """
+
+    Args:
+        login: login: pycarol.Carol
+            Carol() instance.
+        staging_name: str
+            staging to drop etls from
+        connector_name: str
+            connector_name to drop etls from
+        output_list: list
+            output list of the etl to drop
+        logger: logger
+            logger to log process. 
+
+    Returns: None
+
+    """
+    
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+        
+        
+    conn = Connectors(login)
+    connector_id = conn.get_by_name(connector_name)['mdmId']
+    url = f'v1/etl/connector/{connector_id}/sourceEntity/{staging_name}'
+    all_etls = login.call_api(url, )
+    
+    for etl in all_etls:
+        if len(set(output_list) - set(misc.unroll_list(list(misc.find_keys(etl, 'mdmParameterValues'))))) == 0:
+            mdm_id = etl['mdmId']
+            logger.info(f'deleting etl {mdm_id} for {staging_name}')
+            try:
+                # Delete drafts.
+                login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
+                               params={'entitySpace': 'WORKING'})
+            except Exception as e:
+                pass
+            login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
+                           params={'entitySpace': 'PRODUCTION'})
 
 def drop_etls(login, etl_list):
     """

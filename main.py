@@ -20,11 +20,14 @@ def run(domain, org='totvstechfin'):
     time.sleep(round(1 + random.random() * 6, 2))
     org = org
     app_name = "techfinplatform"
-    app_version = '0.2.1'
+    app_version = '0.2.2'
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
 
     techfin_worksheet = sheet_utils.get_client()
+
+    to_drop_stagings = ['se1_acresc',
+                        'se1_decresc', 'se2_acresc', 'se2_decresc']
 
     consolidate_list = [
         'cv3_entrada_creditos',
@@ -38,13 +41,13 @@ def run(domain, org='totvstechfin'):
         'sf1',
         'sd1',
         'cvd',
-        'fk2', 
-        'fkd_deletado', 
-        'fk5_estorno_transferencia_pagamento', 
-        'fk1', 
+        'fk2',
+        'fkd_deletado',
+        'fk5_estorno_transferencia_pagamento',
+        'fk1',
         'fk5_transferencia',
         'sea_1_frv_descontado_naodeletado_invoicepayment',
-        'fkd_1', 
+        'fkd_1',
         'sea_1_frv_descontado_deletado_invoicepayment',
 
     ]
@@ -55,8 +58,7 @@ def run(domain, org='totvstechfin'):
         'sd1_else', 'se1_installments', 'se1_invoice', 'se1_payments',
         'se1_payments_abatimentos', 'se2_installments',  'se2_invoice',
         'se2_payments', 'se2_payments_abatimentos',
-        'se1_decresc', 'se1_acresc', 'se2_decresc', 'se2_acresc',
-        'cvd_else', 'cvd_contas_avaliadas', 
+        'cvd_else', 'cvd_contas_avaliadas',
     ]
 
     to_del_dms = ['apinvoiceaccounting',
@@ -74,6 +76,17 @@ def run(domain, org='totvstechfin'):
 
                   ]
 
+    drop_etl_stagings = {
+        'se1': [
+            {'se1_decresc', },
+            {'se1_acresc', }
+        ],
+        'se2': [
+            {'se2_decresc', },
+            {'se2_acresc', }
+
+        ]}
+
     do_not_pause_staging_list = None
 
     pause_etl_stagings = {
@@ -82,16 +95,12 @@ def run(domain, org='totvstechfin'):
              'se1_invoice',
              'se1_payments',
              'se1_payments_abatimentos'},
-            {'se1_decresc', },
-            {'se1_acresc', }
         ],
         'se2': [
             {'se2_installments',
              'se2_invoice',
              'se2_payments',
              'se2_payments_abatimentos'},
-            {'se2_decresc', },
-            {'se2_acresc', }
 
         ]}
 
@@ -137,6 +146,38 @@ def run(domain, org='totvstechfin'):
             techfin_worksheet, current_cell.row, "failed - fetching app version")
         return
 
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell.row, "running - drop stagings")
+
+    tasks, fail = carol_task.drop_staging(
+        login, staging_list=to_drop_stagings, connector_name=connector_name, logger=logger)
+    if fail:
+        logger.error(f"error dropping staging {domain}")
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell.row, "failed - dropping stagings")
+        return
+    try:
+        task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
+    except Exception as e:
+        logger.error("error dropping staging", exc_info=1)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell.row, "failed - dropping stagings")
+        return
+
+    # Drop ETLs
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell.row, "running - drop ETLs")
+    for key, values in drop_etl_stagings.items():
+        for value in values:
+            try:
+                carol_task.drop_single_etl(login=login, staging_name=key, connector_name=connector_name,
+                                           output_list=value, logger=logger)
+            except:
+                logger.error("error dropping ETLs", exc_info=1)
+                sheet_utils.update_status(
+                    techfin_worksheet, current_cell.row, "failed - dropping ETLs")
+                return
+
     fail = False
     task_list = '__unk__'
     if current_version != app_version:
@@ -156,7 +197,7 @@ def run(domain, org='totvstechfin'):
             techfin_worksheet, current_cell.row, app_version)
         sheet_utils.update_status(techfin_worksheet, current_cell.row, "Done")
         sheet_utils.update_end_time(techfin_worksheet, current_cell.row)
-        return
+        # return
 
     if fail:
         sheet_utils.update_status(techfin_worksheet, current_cell.row,
@@ -191,7 +232,7 @@ def run(domain, org='totvstechfin'):
 
     # Delete all invoice-accountings from techfin
 
-    sync_type = sheet_utils.get_sync_type(techfin_worksheet, current_cell.row)
+    sync_type = sheet_utils.get_sync_type(techfin_worksheet, current_cell.row) or ''
     if 'painel' in sync_type.lower().strip():
         sheet_utils.update_status(
             techfin_worksheet, current_cell.row, "running - delete invoice-accountings techfin")
@@ -205,6 +246,7 @@ def run(domain, org='totvstechfin'):
             return
 
     # consolidate
+    logger.debug(f"running - consolidate for {domain}")
     sheet_utils.update_status(
         techfin_worksheet, current_cell.row, "running - consolidate")
     task_list = carol_task.consolidate_stagings(login, connector_name=connector_name, staging_list=consolidate_list,
@@ -226,6 +268,7 @@ def run(domain, org='totvstechfin'):
         return
 
     # delete stagings.
+    logger.debug(f"running -  delete stagings {domain}")
     sheet_utils.update_status(
         techfin_worksheet, current_cell.row, "running - delete stagings")
 
@@ -290,27 +333,27 @@ def run(domain, org='totvstechfin'):
 if __name__ == "__main__":
     techfin_worksheet = sheet_utils.get_client()
 
-    # run("tenant3e1809635d7911ea836d662e6095e25f")
+    run("protheusdev", org='totvstechfindev')
 
-    has_tenant = [1, 2, 3]
-    while len(has_tenant) > 1:
-        table = techfin_worksheet.get_all_records()
-        skip_status = ['done', 'failed', 'running',
-                       'installing', 'reprocessing', 'wait']
-        to_process = [t['environmentName (tenantID)'].strip() for t in table
-                      if t.get('environmentName (tenantID)', None) is not None
-                      and t.get('environmentName (tenantID)', 'None') != ''
-                      and not any(i in t.get('Status', '').lower().strip() for i in skip_status)
-                      ]
+    # has_tenant = [1, 2, 3]
+    # while len(has_tenant) > 1:
+    #     table = techfin_worksheet.get_all_records()
+    #     skip_status = ['done', 'failed', 'running',
+    #                    'installing', 'reprocessing', 'wait']
+    #     to_process = [t['environmentName (tenantID)'].strip() for t in table
+    #                   if t.get('environmentName (tenantID)', None) is not None
+    #                   and t.get('environmentName (tenantID)', 'None') != ''
+    #                   and not any(i in t.get('Status', '').lower().strip() for i in skip_status)
+    #                   ]
 
-        has_tenant = [i for i in table if i['Status']
-                      == '' or i['Status'] == 'wait']
-        print(
-            f"there are {len(to_process)} to process and {len(has_tenant)} waiting")
+    #     has_tenant = [i for i in table if i['Status']
+    #                   == '' or i['Status'] == 'wait']
+    #     print(
+    #         f"there are {len(to_process)} to process and {len(has_tenant)} waiting")
 
-        pool = multiprocessing.Pool(5)
-        pool.map(run, to_process)
-        pool.close()
-        pool.join()
+    #     pool = multiprocessing.Pool(5)
+    #     pool.map(run, to_process)
+    #     pool.close()
+    #     pool.join()
 
-        time.sleep(240)
+    #     time.sleep(240)
