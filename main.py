@@ -20,13 +20,13 @@ def run(domain, org='totvstechfin'):
     time.sleep(round(1 + random.random() * 6, 2))
     org = org
     app_name = "techfinplatform"
-    app_version = '0.2.3'
+    app_version = '0.2.7'
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
 
     techfin_worksheet = sheet_utils.get_client()
 
-    to_drop_stagings = ['se1_acresc',
+    to_drop_stagings = ['se1_acresc', 'cv3_outros', 
                         'se1_decresc', 'se2_acresc', 'se2_decresc']
 
     consolidate_list = [
@@ -333,7 +333,7 @@ def run(domain, org='totvstechfin'):
 if __name__ == "__main__":
     techfin_worksheet = sheet_utils.get_client()
 
-    # run("protheusdev", org='totvstechfindev')
+    # run("tenantb8a332cd96b3498a94be60caa90f81e9", org='totvstechfin')
 
     has_tenant = [1, 2, 3]
     while len(has_tenant) > 1:
