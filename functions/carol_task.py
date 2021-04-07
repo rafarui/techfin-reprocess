@@ -171,16 +171,15 @@ def drop_single_etl(login, staging_name, connector_name, output_list, logger):
     Returns: None
 
     """
-    
+
     if logger is None:
         logger = logging.getLogger(login.domain)
-        
-        
+
     conn = Connectors(login)
     connector_id = conn.get_by_name(connector_name)['mdmId']
     url = f'v1/etl/connector/{connector_id}/sourceEntity/{staging_name}'
     all_etls = login.call_api(url, )
-    
+
     for etl in all_etls:
         if len(set(output_list) - set(misc.unroll_list(list(misc.find_keys(etl, 'mdmParameterValues'))))) == 0:
             mdm_id = etl['mdmId']
@@ -193,6 +192,7 @@ def drop_single_etl(login, staging_name, connector_name, output_list, logger):
                 pass
             login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
                            params={'entitySpace': 'PRODUCTION'})
+
 
 def drop_etls(login, etl_list):
     """
@@ -375,7 +375,7 @@ def consolidate_stagings(login, connector_name, staging_list, n_jobs=5, compute_
 
     task_id = Parallel(n_jobs=n_jobs, backend='threading')(delayed(par_consolidate)(
         login, staging_name=i,
-        connector_name=connector_name, auto_scaling=auto_scaling, 
+        connector_name=connector_name, auto_scaling=auto_scaling,
         compute_transformations=compute_transformations
     )
         for i in staging_list)
@@ -476,7 +476,27 @@ def cancel_task_subprocess(login):
         cancel_tasks(login, pross_task)
 
 
-
 def check_lookup(login, staging_name, connector_name):
     return Staging(login).get_schema(staging_name=staging_name,
-                                       connector_name=connector_name, )['mdmLookupTable']
+                                     connector_name=connector_name, )['mdmLookupTable']
+
+
+def change_app_settings(login, app_name, settings, logger=None):
+
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+
+    app = Apps(login)
+    logger.debug(f'updating settings {settings}')
+    s = app.update_setting_values(settings=settings, app_name=app_name)
+    return s
+
+
+def start_app_process(login, app_name, process_name):
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+
+    app = Apps(login)
+
+    a = app.start_app_process(app_name=app_name, process_name=process_name)
+    return a
