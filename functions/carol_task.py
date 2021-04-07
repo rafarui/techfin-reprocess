@@ -511,7 +511,7 @@ def change_app_settings(login, app_name, settings, logger=None):
     return s
 
 
-def start_app_process(login, app_name, process_name):
+def start_app_process(login, app_name, process_name, logger=None):
     """Start a process in Carol
 
     Args:
