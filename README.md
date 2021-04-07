@@ -1,6 +1,6 @@
 #### Funcitons already implemented.
 
-In functions.carol task
+In functions.carol_task.py
 
 1. `cancel_tasks`: Cancell tasks given task list. 
 2. `track_tasks`: track tasks in carol
@@ -25,3 +25,10 @@ In functions.carol task
 21.  `check_lookup`: check if a staing table is lookup table.
 22.  `change_app_settings`: change app settings.
 23.  `start_app_process`: start app process.
+
+
+In functions.carol_apps.py
+
+1. `get_app_version`: Get app version
+2. `check_failed_instalL`: Check if there is a faild app task instalation for the current version,
+3. `update_app` update app version.
