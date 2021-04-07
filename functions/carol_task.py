@@ -1,5 +1,5 @@
 from pycarol import (
-    Carol, ApiKeyAuth, PwdAuth, Tasks, Staging, Connectors, CDSStaging, Subscription, DataModel
+    Carol, ApiKeyAuth, PwdAuth, Tasks, Staging, Connectors, CDSStaging, Subscription, DataModel, Apps
 )
 
 from pycarol import CDSGolden
@@ -172,7 +172,7 @@ def get_all_etls(login, connector_name):
 def drop_single_etl(login, staging_name, connector_name, output_list, logger):
     """
     Drop ETL based on the outputs of a given ETL.
-    
+
     Args:
         login: login: pycarol.Carol
             Carol() instance.
@@ -181,7 +181,7 @@ def drop_single_etl(login, staging_name, connector_name, output_list, logger):
         connector_name: str
             connector_name to drop etls from
         output_list: list
-            output list of the etl to drop
+            output list of the etl to drop. It will only drop the ETL if all the outputs are present.
         logger: logger
             logger to log process. 
 
@@ -213,6 +213,7 @@ def drop_single_etl(login, staging_name, connector_name, output_list, logger):
 
 def drop_etls(login, etl_list):
     """
+    Drop ETLs from ETL list.
 
     Args:
         login: login: pycarol.Carol
