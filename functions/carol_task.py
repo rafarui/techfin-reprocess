@@ -15,6 +15,13 @@ from functions import misc
 
 
 def cancel_tasks(login, task_list, logger=None):
+    """Cancell tasks from Carol
+
+    Args:
+        login (pycarol.Carol): Instance of pycarol.Carol
+        task_list (list): list of carol tasks
+        logger (logger, optional): logger to log informations. Defaults to None.
+    """
     if logger is None:
         logger = logging.getLogger(login.domain)
 
@@ -26,7 +33,19 @@ def cancel_tasks(login, task_list, logger=None):
     return
 
 
-def track_tasks(login, task_list, do_not_retry=False, logger=None, callback=None):
+def track_tasks(login, task_list, retry_count=3, logger=None, callback=None, ):
+    """Track a list of taks from carol, waiting for errors/completeness. 
+
+    Args:
+        login (pycarol.Carol): pycarol.Carol instance
+        task_list (list): List of tasks in Carol
+        retry_count (int, optional): Number of times to restart a failed task. Defaults to 3.
+        logger (logger, optional): logger to log information. Defaults to None.
+        callback (calable, optional): This function will be called every time task status are fetch from carol. Defaults to None.
+
+    Returns:
+        [dict]: dict with status of each task.
+    """
     if logger is None:
         logger = logging.getLogger(login.domain)
 
@@ -42,12 +61,9 @@ def track_tasks(login, task_list, do_not_retry=False, logger=None, callback=None
         for task in task_status['FAILED'] + task_status['CANCELED']:
             logger.warning(f'Something went wrong while processing: {task}')
             retry_tasks[task] += 1
-            if do_not_retry:
-                logger.error(f'Task: {task} failed. It wll not be restarted.')
-                continue
-            if retry_tasks[task] > 3:
+            if retry_tasks[task] > retry_count:
                 max_retries.update([task])
-                logger.error(f'Task: {task} failed 3 times. will not restart')
+                logger.error(f'Task: {task} failed {retry_count} times. will not restart')
                 continue
 
             logger.info(f'Retry task: {task}')
@@ -155,7 +171,8 @@ def get_all_etls(login, connector_name):
 
 def drop_single_etl(login, staging_name, connector_name, output_list, logger):
     """
-
+    Drop ETL based on the outputs of a given ETL.
+    
     Args:
         login: login: pycarol.Carol
             Carol() instance.
@@ -480,3 +497,34 @@ def cancel_task_subprocess(login):
 def check_lookup(login, staging_name, connector_name):
     return Staging(login).get_schema(staging_name=staging_name,
                                        connector_name=connector_name, )['mdmLookupTable']
+
+
+def change_app_settings(login, app_name, settings, logger=None):
+
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+
+    app = Apps(login)
+    logger.debug(f'updating settings {settings}')
+    s = app.update_setting_values(settings=settings, app_name=app_name)
+    return s
+
+
+def start_app_process(login, app_name, process_name):
+    """Start a process in Carol
+
+    Args:
+        login (pycarol.Carol): Instance of Carol()
+        app_name (str): app name to start the process
+        process_name (str): Process name. Note, it is case sensitive
+
+    Returns:
+        dict: Carol task details.
+    """
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+
+    app = Apps(login)
+
+    a = app.start_app_process(app_name=app_name, process_name=process_name)
+    return a
