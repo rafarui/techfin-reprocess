@@ -15,15 +15,14 @@ import multiprocessing
 load_dotenv('.env', override=True)
 
 
-def run(domain, org='totvstechfin'):
+def run(domain, org='totvstechfin', ):
     # avoid all tasks starting at the same time.
     time.sleep(round(1 + random.random() * 6, 2))
     org = org
     app_name = "techfinplatform"
-    app_version = '0.2.7'
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
-
+    app_version = '0.2.7'
     techfin_worksheet = sheet_utils.get_client()
 
     to_drop_stagings = ['se1_acresc', 'cv3_outros', 
@@ -333,7 +332,7 @@ def run(domain, org='totvstechfin'):
 if __name__ == "__main__":
     techfin_worksheet = sheet_utils.get_client()
 
-    # run("tenantb8a332cd96b3498a94be60caa90f81e9", org='totvstechfin')
+    # run("tenant88889a28b7a211eab6fd0a58646001d7", org='totvstechfin')
 
     has_tenant = [1, 2, 3]
     while len(has_tenant) > 1:
