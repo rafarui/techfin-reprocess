@@ -1,5 +1,5 @@
 from pycarol import (
-    Carol, ApiKeyAuth, PwdAuth, Tasks, Staging, Connectors, CDSStaging, Subscription, DataModel
+    Carol, ApiKeyAuth, PwdAuth, Tasks, Staging, Connectors, CDSStaging, Subscription, DataModel, Apps
 )
 
 from pycarol import CDSGolden
