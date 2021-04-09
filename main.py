@@ -25,55 +25,12 @@ def run(domain, org='totvstechfin', ):
     app_version = '0.2.7'
     techfin_worksheet = sheet_utils.get_client()
 
+    process_name = 'processAll'
+    app_settings = {'clean_dm': True, 'clean_etls': True, 'skip_pause': False}
+
     to_drop_stagings = ['se1_acresc', 'cv3_outros', 
                         'se1_decresc', 'se2_acresc', 'se2_decresc']
 
-    consolidate_list = [
-        'cv3_entrada_creditos',
-        'cv3_entrada_debitos',
-        'cv3_saida_creditos',
-        'cv3_saida_debitos',
-        'se1',
-        'se2',
-        'ar1_2',
-        'sf2',
-        'sf1',
-        'sd1',
-        'cvd',
-        'fk2',
-        'fkd_deletado',
-        'fk5_estorno_transferencia_pagamento',
-        'fk1',
-        'fk5_transferencia',
-        'sea_1_frv_descontado_naodeletado_invoicepayment',
-        'fkd_1',
-        'sea_1_frv_descontado_deletado_invoicepayment',
-
-    ]
-
-    to_del_staging = [
-        'sf1_consulta', 'sf1_invoicebra', 'sf2_consulta', 'sf2_invoicebra',
-        'sd1_consulta', 'sd1_dados', 'sd1_devolution',
-        'sd1_else', 'se1_installments', 'se1_invoice', 'se1_payments',
-        'se1_payments_abatimentos', 'se2_installments',  'se2_invoice',
-        'se2_payments', 'se2_payments_abatimentos',
-        'cvd_else', 'cvd_contas_avaliadas',
-    ]
-
-    to_del_dms = ['apinvoiceaccounting',
-                  'apinvoice',
-                  'arinvoice',
-                  'arinvoiceinstallment',
-                  'apinvoicepayments',
-                  'arinvoicebra',
-                  'arinvoiceaccounting',
-                  'apinvoiceinstallment',
-                  'apinvoicebra',
-                  'arinvoiceorigin',
-                  'arinvoicepartner',
-                  'arinvoicepayments',
-
-                  ]
 
     drop_etl_stagings = {
         'se1': [
@@ -83,23 +40,6 @@ def run(domain, org='totvstechfin', ):
         'se2': [
             {'se2_decresc', },
             {'se2_acresc', }
-
-        ]}
-
-    do_not_pause_staging_list = None
-
-    pause_etl_stagings = {
-        'se1': [
-            {'se1_installments',
-             'se1_invoice',
-             'se1_payments',
-             'se1_payments_abatimentos'},
-        ],
-        'se2': [
-            {'se2_installments',
-             'se2_invoice',
-             'se2_payments',
-             'se2_payments_abatimentos'},
 
         ]}
 
@@ -212,114 +152,27 @@ def run(domain, org='totvstechfin', ):
     if pross_task:
         carol_task.cancel_tasks(login, pross_task)
 
-    # pause ETLs.
-    for key, values in pause_etl_stagings.items():
-        for value in values:
-            try:
-                carol_task.pause_single_staging_etl(
-                    login=login, staging_name=key, connector_name=connector_name, output_list=value, logger=logger
-                )
-            except:
-                sheet_utils.update_status(techfin_worksheet, current_cell.row,
-                                          'failed - stopping ETLs')
-                return
 
-    # pause mappings.
-    carol_task.pause_dms(login, dm_list=dms, connector_name=connector_name,
-                         do_not_pause_staging_list=do_not_pause_staging_list)
-    time.sleep(round(10 + random.random() * 6, 2))  # pause have affect
-
-    # Delete all invoice-accountings from techfin
-
-    sync_type = sheet_utils.get_sync_type(techfin_worksheet, current_cell.row) or ''
-    if 'painel' in sync_type.lower().strip():
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "running - delete invoice-accountings techfin")
-        try:
-            res = techfin_task.delete_invoice_accountings(login.domain)
-        except Exception as e:
-            sheet_utils.update_status(
-                techfin_worksheet, current_cell.row, "failed - delete invoice-accountings techfin")
-            logger.error(
-                "error after delete invoice-accountings techfin", exc_info=1)
-            return
-
-    # consolidate
-    logger.debug(f"running - consolidate for {domain}")
+    # prepare process All
     sheet_utils.update_status(
-        techfin_worksheet, current_cell.row, "running - consolidate")
-    task_list = carol_task.consolidate_stagings(login, connector_name=connector_name, staging_list=consolidate_list,
-                                                n_jobs=1, logger=logger, auto_scaling=auto_scaling,
-                                                compute_transformations=compute_transformations)
+        techfin_worksheet, current_cell.row, "running - processAll")
+    carol_task.change_app_settings(
+        login=login, app_name=app_name, settings=app_settings)
 
+    task = carol_task.start_app_process(
+        login, app_name=app_name, process_name=process_name)
+    tasks = [task['data']['mdmId']]
     try:
-        task_list, fail = carol_task.track_tasks(
-            login, task_list, logger=logger)
-    except:
+        task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
+    except Exception as e:
+        logger.error("failed - processAll", exc_info=1)
         sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - consolidate")
-        logger.error("error after consolidate", exc_info=1)
+            techfin_worksheet, current_cell.row, "failed - processAll")
         return
     if fail:
+        logger.info(f"'failed - processAll'")
         sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - consolidate")
-        logger.error("error after consolidate")
-        return
-
-    # delete stagings.
-    logger.debug(f"running -  delete stagings {domain}")
-    sheet_utils.update_status(
-        techfin_worksheet, current_cell.row, "running - delete stagings")
-
-    task_list = carol_task.par_delete_staging(
-        login, staging_list=to_del_staging, connector_name=connector_name, n_jobs=1)
-    try:
-        task_list, fail = carol_task.track_tasks(
-            login, task_list, logger=logger)
-    except:
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - delete stagings")
-        logger.error("error after delete DMs", exc_info=1)
-        return
-    if fail:
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - delete stagings")
-        logger.error("error after delete DMs")
-        return
-
-    # delete DMs
-    sheet_utils.update_status(
-        techfin_worksheet, current_cell.row, "running - delete DMs")
-    task_list = carol_task.par_delete_golden(
-        login, dm_list=to_del_dms, n_jobs=1)
-    try:
-        task_list, fail = carol_task.track_tasks(
-            login, task_list, logger=logger)
-    except:
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - delete DMs")
-        logger.error("error after delete DMs", exc_info=1)
-        return
-    if fail:
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - delete DMs")
-        logger.error("error after delete DMs")
-        return
-
-    sheet_utils.update_status(
-        techfin_worksheet, current_cell.row, "running - processing")
-    try:
-        fail = custom_pipeline.run_custom_pipeline(
-            login, connector_name=connector_name, logger=logger)
-    except Exception:
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - processing")
-        logger.error("error after processing", exc_info=1)
-        return
-    if fail:
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - processing")
-        logger.error("error after processing")
+            techfin_worksheet, current_cell.row, "failed - processAll")
         return
 
     logger.info(f"Finished all process {domain}")
