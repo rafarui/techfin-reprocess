@@ -2,7 +2,7 @@ from pycarol import Carol, ApiKeyAuth, PwdAuth, Tasks, Apps
 from functools import partial
 from . import carol_task
 
-def get_app_version(login, app_name, version):
+def get_app_version(login, app_name, version=None):
     app = Apps(login)
     app_info = app.get_by_name(app_name)
     return app_info['mdmAppVersion']
