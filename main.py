@@ -31,7 +31,7 @@ def run(domain, org='totvstechfin', ):
     to_drop_stagings = ['se1_acresc', 'cv3_outros', 
                         'se1_decresc', 'se2_acresc', 'se2_decresc']
 
-
+    to_look = ['arInvoices','apInvoices','mdCurrencies','mdBusinessPartners',]
     drop_etl_stagings = {
         'se1': [
             {'se1_decresc', },
@@ -151,6 +151,24 @@ def run(domain, org='totvstechfin', ):
     pross_task = [i['mdmId'] for i in pross_tasks]
     if pross_task:
         carol_task.cancel_tasks(login, pross_task)
+
+
+    # deleting all data from techfin
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell.row, "running - deleting DM from techfin")
+    
+    try:
+       r = techfin_task.delete_and_track(login.domain, to_look=to_look, )
+    except Exception as e:
+        logger.error("failed - deleting DM from techfin", exc_info=1)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell.row, "failed - deleting DM from techfin")
+        return
+    if r:
+        logger.error("failed - deleting DM from techfin",)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell.row, "failed - deleting DM from techfin")
+        return
 
 
     # prepare process All

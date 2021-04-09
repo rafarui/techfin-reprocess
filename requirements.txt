@@ -1,4 +1,5 @@
 git+https://github.com/totvslabs/pyCarol.git#egg=pycarol
+git+https://github.com/jnefoussi/pytechfin.git
 gspread
 joblib
 slacker-log-handler
