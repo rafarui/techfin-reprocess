@@ -158,7 +158,7 @@ def run(domain, org='totvstechfin', ):
         techfin_worksheet, current_cell.row, "running - deleting DM from techfin")
     
     try:
-       r = techfin_task.delete_and_track(login.domain, to_look=to_look, )
+        r = techfin_task.delete_and_track(login.domain, to_look=to_look, )
     except Exception as e:
         logger.error("failed - deleting DM from techfin", exc_info=1)
         sheet_utils.update_status(
