@@ -28,10 +28,11 @@ def run(domain, org='totvstechfin', ):
     process_name = 'processAll'
     app_settings = {'clean_dm': True, 'clean_etls': True, 'skip_pause': False}
 
-    to_drop_stagings = ['se1_acresc', 'cv3_outros', 
+    to_drop_stagings = ['se1_acresc', 'cv3_outros',
                         'se1_decresc', 'se2_acresc', 'se2_decresc']
 
-    to_look = ['arInvoices','apInvoices','mdCurrencies','mdBusinessPartners',]
+    to_look = ['arInvoices', 'apInvoices',
+               'mdCurrencies', 'mdBusinessPartners', ]
     drop_etl_stagings = {
         'se1': [
             {'se1_decresc', },
@@ -134,8 +135,6 @@ def run(domain, org='totvstechfin', ):
         logger.info(f"Running version {app_version}")
         sheet_utils.update_version(
             techfin_worksheet, current_cell.row, app_version)
-        sheet_utils.update_status(techfin_worksheet, current_cell.row, "Done")
-        sheet_utils.update_end_time(techfin_worksheet, current_cell.row)
         # return
 
     if fail:
@@ -152,11 +151,10 @@ def run(domain, org='totvstechfin', ):
     if pross_task:
         carol_task.cancel_tasks(login, pross_task)
 
-
     # deleting all data from techfin
     sheet_utils.update_status(
         techfin_worksheet, current_cell.row, "running - deleting DM from techfin")
-    
+
     try:
         r = techfin_task.delete_and_track(login.domain, to_look=to_look, )
     except Exception as e:
@@ -169,7 +167,6 @@ def run(domain, org='totvstechfin', ):
         sheet_utils.update_status(
             techfin_worksheet, current_cell.row, "failed - deleting DM from techfin")
         return
-
 
     # prepare process All
     sheet_utils.update_status(
