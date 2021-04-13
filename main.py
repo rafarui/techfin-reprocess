@@ -12,18 +12,40 @@ import logging
 from functools import reduce
 import multiprocessing
 
+import argparse
+
+parser = argparse.ArgumentParser(
+    description='Update app')
+parser.add_argument("-t", '--tenant',
+                    type=str,  # required=True,
+                    help='tenant domain to update.')
+
+parser.add_argument("-o", '--org',
+                    type=str, default='totvstechfin',
+                    help='tenant organization to update.')
+
+parser.add_argument('--ignore-sheet', action='store_true',
+                    help='Do not use google spreadsheet')
+
+args = parser.parse_args()
+
 load_dotenv('.env', override=True)
 
 
-def run(domain, org='totvstechfin', ):
+def run(domain, org='totvstechfin', ignore_sheet=False):
     # avoid all tasks starting at the same time.
-    time.sleep(round(1 + random.random() * 6, 2))
+
     org = org
     app_name = "techfinplatform"
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
     app_version = '0.2.7'
-    techfin_worksheet = sheet_utils.get_client()
+
+    if ignore_sheet:
+        techfin_worksheet = None
+    else:
+        time.sleep(round(1 + random.random() * 6, 2))
+        techfin_worksheet = sheet_utils.get_client()
 
     process_name = 'processAll'
     app_settings = {'clean_dm': True, 'clean_etls': True, 'skip_pause': False}
@@ -63,16 +85,20 @@ def run(domain, org='totvstechfin', ):
     logger.addHandler(console)
 
     current_cell = sheet_utils.find_tenant(techfin_worksheet, domain)
-    status = techfin_worksheet.row_values(current_cell.row)[-1].strip().lower()
+    if current_cell is None and ignore_sheet:
+        pass
+    else:
+        current_cell = current_cell.row
+        status = techfin_worksheet.row_values(current_cell)[-1].strip().lower()
 
-    skip_status = ['done', 'failed', 'wait',
-                   'running', 'installing', 'reprocessing']
-    if any(i in status for i in skip_status):
-        logger.info(f"Nothing to do in {domain}, status {status}")
-        return
+        skip_status = ['done', 'failed', 'wait',
+                       'running', 'installing', 'reprocessing']
+        if any(i in status for i in skip_status):
+            logger.info(f"Nothing to do in {domain}, status {status}")
+            return
 
     login = carol_login.get_login(domain, org, app_name)
-    sheet_utils.update_start_time(techfin_worksheet, current_cell.row)
+    sheet_utils.update_start_time(techfin_worksheet, current_cell)
 
     dag = list(reduce(set.union, custom_pipeline.get_dag()))
     dms = [i.replace('DM_', '') for i in dag if i.startswith('DM_')]
@@ -83,30 +109,30 @@ def run(domain, org='totvstechfin', ):
     except:
         logger.error(f"error fetching app version {login.domain}", exc_info=1)
         sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - fetching app version")
+            techfin_worksheet, current_cell, "failed - fetching app version")
         return
 
     sheet_utils.update_status(
-        techfin_worksheet, current_cell.row, "running - drop stagings")
+        techfin_worksheet, current_cell, "running - drop stagings")
 
     tasks, fail = carol_task.drop_staging(
         login, staging_list=to_drop_stagings, connector_name=connector_name, logger=logger)
     if fail:
         logger.error(f"error dropping staging {domain}")
         sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - dropping stagings")
+            techfin_worksheet, current_cell, "failed - dropping stagings")
         return
     try:
         task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
     except Exception as e:
         logger.error("error dropping staging", exc_info=1)
         sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - dropping stagings")
+            techfin_worksheet, current_cell, "failed - dropping stagings")
         return
 
     # Drop ETLs
     sheet_utils.update_status(
-        techfin_worksheet, current_cell.row, "running - drop ETLs")
+        techfin_worksheet, current_cell, "running - drop ETLs")
     for key, values in drop_etl_stagings.items():
         for value in values:
             try:
@@ -115,7 +141,7 @@ def run(domain, org='totvstechfin', ):
             except:
                 logger.error("error dropping ETLs", exc_info=1)
                 sheet_utils.update_status(
-                    techfin_worksheet, current_cell.row, "failed - dropping ETLs")
+                    techfin_worksheet, current_cell, "failed - dropping ETLs")
                 return
 
     fail = False
@@ -124,28 +150,28 @@ def run(domain, org='totvstechfin', ):
 
         logger.info(f"Updating app from {current_version} to {app_version}")
         sheet_utils.update_version(
-            techfin_worksheet, current_cell.row, current_version)
+            techfin_worksheet, current_cell, current_version)
         sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "running - app install")
+            techfin_worksheet, current_cell, "running - app install")
         task_list, fail = carol_apps.update_app(
             login, app_name, app_version, logger, connector_group=connector_group)
         sheet_utils.update_version(
-            techfin_worksheet, current_cell.row, app_version)
+            techfin_worksheet, current_cell, app_version)
     else:
         logger.info(f"Running version {app_version}")
         sheet_utils.update_version(
-            techfin_worksheet, current_cell.row, app_version)
+            techfin_worksheet, current_cell, app_version)
         # return
 
     if fail:
-        sheet_utils.update_status(techfin_worksheet, current_cell.row,
+        sheet_utils.update_status(techfin_worksheet, current_cell,
                                   'failed - app install')
 
         return
 
     # Cancel unwanted tasks.
     sheet_utils.update_status(
-        techfin_worksheet, current_cell.row, "running - canceling tasks")
+        techfin_worksheet, current_cell, "running - canceling tasks")
     pross_tasks = carol_task.find_task_types(login)
     pross_task = [i['mdmId'] for i in pross_tasks]
     if pross_task:
@@ -153,24 +179,24 @@ def run(domain, org='totvstechfin', ):
 
     # deleting all data from techfin
     sheet_utils.update_status(
-        techfin_worksheet, current_cell.row, "running - deleting DM from techfin")
+        techfin_worksheet, current_cell, "running - deleting DM from techfin")
 
     try:
         r = techfin_task.delete_and_track(login.domain, to_look=to_look, )
     except Exception as e:
         logger.error("failed - deleting DM from techfin", exc_info=1)
         sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - deleting DM from techfin")
+            techfin_worksheet, current_cell, "failed - deleting DM from techfin")
         return
     if r:
         logger.error("failed - deleting DM from techfin",)
         sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - deleting DM from techfin")
+            techfin_worksheet, current_cell, "failed - deleting DM from techfin")
         return
 
     # prepare process All
     sheet_utils.update_status(
-        techfin_worksheet, current_cell.row, "running - processAll")
+        techfin_worksheet, current_cell, "running - processAll")
     carol_task.change_app_settings(
         login=login, app_name=app_name, settings=app_settings)
 
@@ -182,17 +208,17 @@ def run(domain, org='totvstechfin', ):
     except Exception as e:
         logger.error("failed - processAll", exc_info=1)
         sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - processAll")
+            techfin_worksheet, current_cell, "failed - processAll")
         return
     if fail:
         logger.info(f"'failed - processAll'")
         sheet_utils.update_status(
-            techfin_worksheet, current_cell.row, "failed - processAll")
+            techfin_worksheet, current_cell, "failed - processAll")
         return
 
     logger.info(f"Finished all process {domain}")
-    sheet_utils.update_status(techfin_worksheet, current_cell.row, "Done")
-    sheet_utils.update_end_time(techfin_worksheet, current_cell.row)
+    sheet_utils.update_status(techfin_worksheet, current_cell, "Done")
+    sheet_utils.update_end_time(techfin_worksheet, current_cell)
 
     return task_list
 
@@ -200,27 +226,30 @@ def run(domain, org='totvstechfin', ):
 if __name__ == "__main__":
     techfin_worksheet = sheet_utils.get_client()
 
-    # run("tenant88889a28b7a211eab6fd0a58646001d7", org='totvstechfin')
+    if args.tenant is not None:
+        ignore_sheet = args.ignore_sheet
+        run(args.tenant, org=args.org, ignore_sheet=ignore_sheet)
 
-    has_tenant = [1, 2, 3]
-    while len(has_tenant) > 1:
-        table = techfin_worksheet.get_all_records()
-        skip_status = ['done', 'failed', 'running',
-                       'installing', 'reprocessing', 'wait']
-        to_process = [t['environmentName (tenantID)'].strip() for t in table
-                      if t.get('environmentName (tenantID)', None) is not None
-                      and t.get('environmentName (tenantID)', 'None') != ''
-                      and not any(i in t.get('Status', '').lower().strip() for i in skip_status)
-                      ]
+    else:
+        has_tenant = [1, 2, 3]
+        while len(has_tenant) > 1:
+            table = techfin_worksheet.get_all_records()
+            skip_status = ['done', 'failed', 'running',
+                           'installing', 'reprocessing', 'wait']
+            to_process = [t['environmentName (tenantID)'].strip() for t in table
+                          if t.get('environmentName (tenantID)', None) is not None
+                          and t.get('environmentName (tenantID)', 'None') != ''
+                          and not any(i in t.get('Status', '').lower().strip() for i in skip_status)
+                          ]
 
-        has_tenant = [i for i in table if i['Status']
-                      == '' or i['Status'] == 'wait']
-        print(
-            f"there are {len(to_process)} to process and {len(has_tenant)} waiting")
+            has_tenant = [i for i in table if i['Status']
+                          == '' or i['Status'] == 'wait']
+            print(
+                f"there are {len(to_process)} to process and {len(has_tenant)} waiting")
 
-        pool = multiprocessing.Pool(5)
-        pool.map(run, to_process)
-        pool.close()
-        pool.join()
+            pool = multiprocessing.Pool(5)
+            pool.map(run, to_process)
+            pool.close()
+            pool.join()
 
-        time.sleep(240)
+            time.sleep(240)
