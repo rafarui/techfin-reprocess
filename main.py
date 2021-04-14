@@ -178,7 +178,7 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
         carol_task.cancel_tasks(login, pross_task)
 
 
-    sync_type = sheet_utils.get_sync_type(techfin_worksheet, current_cell.row) or ''
+    sync_type = sheet_utils.get_sync_type(techfin_worksheet, current_cell) or ''
     if 'painel' in sync_type.lower().strip():
         # deleting all data from techfin
         sheet_utils.update_status(
