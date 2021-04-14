@@ -177,22 +177,25 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
     if pross_task:
         carol_task.cancel_tasks(login, pross_task)
 
-    # deleting all data from techfin
-    sheet_utils.update_status(
-        techfin_worksheet, current_cell, "running - deleting DM from techfin")
 
-    try:
-        r = techfin_task.delete_and_track(login.domain, to_look=to_look, )
-    except Exception as e:
-        logger.error("failed - deleting DM from techfin", exc_info=1)
+    sync_type = sheet_utils.get_sync_type(techfin_worksheet, current_cell.row) or ''
+    if 'painel' in sync_type.lower().strip():
+        # deleting all data from techfin
         sheet_utils.update_status(
-            techfin_worksheet, current_cell, "failed - deleting DM from techfin")
-        return
-    if r:
-        logger.error("failed - deleting DM from techfin",)
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell, "failed - deleting DM from techfin")
-        return
+            techfin_worksheet, current_cell, "running - deleting DM from techfin")
+
+        try:
+            r = techfin_task.delete_and_track(login.domain, to_look=to_look, )
+        except Exception as e:
+            logger.error("failed - deleting DM from techfin", exc_info=1)
+            sheet_utils.update_status(
+                techfin_worksheet, current_cell, "failed - deleting DM from techfin")
+            return
+        if r:
+            logger.error("failed - deleting DM from techfin",)
+            sheet_utils.update_status(
+                techfin_worksheet, current_cell, "failed - deleting DM from techfin")
+            return
 
     # prepare process All
     sheet_utils.update_status(
