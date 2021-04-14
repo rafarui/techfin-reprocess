@@ -25,6 +25,11 @@ In functions.carol_task.py
 21.  `check_lookup`: check if a staing table is lookup table.
 22.  `change_app_settings`: change app settings.
 23.  `start_app_process`: start app process.
+24.  `get_relationships`: get relationships from a data model
+25.  `get_relationship_constraints`: get relationship constraints from a data model
+26.  `remove_relationships`: remove relationships from a data model
+27.  `remove_relationships_and_delete_data_model`: remove relationship and delete a data model
+28.  `remove_dms` remove relationship and delete data models from a list
 
 
 In functions.carol_apps.py

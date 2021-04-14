@@ -66,6 +66,25 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
 
         ]}
 
+    drop_data_models = [
+        'apbankbearer',
+        'apbankbearerlot',
+        'appaymentsbank',
+        'appaymentscard',
+        'appaymentscheckbook',
+        'apbankpayment',
+        'apcardpayment',
+        'apcheckbook',
+        'arbankbearer',
+        'arbankbearerlot',
+        'arpaymentscard',
+        'arpaymentscheckbook',
+        'arcardpayment',
+        'archeckbook',
+        'arappayments',
+        'cashflowevents',
+    ]
+
     # need to force the old data to the stagings transformation.
     compute_transformations = True
     auto_scaling = True
@@ -112,6 +131,19 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
             techfin_worksheet, current_cell, "failed - fetching app version")
         return
 
+
+    # Drop DMs
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - drop DMs")
+    try:
+        carol_task.remove_dms(login, drop_data_models)
+    except Exception as e:
+        logger.error("error dropping Dms", exc_info=1)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - dropping Dms")
+        return
+
+    # Drop stagings
     sheet_utils.update_status(
         techfin_worksheet, current_cell, "running - drop stagings")
 
@@ -177,8 +209,8 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
     if pross_task:
         carol_task.cancel_tasks(login, pross_task)
 
-
-    sync_type = sheet_utils.get_sync_type(techfin_worksheet, current_cell) or ''
+    sync_type = sheet_utils.get_sync_type(
+        techfin_worksheet, current_cell) or ''
     if 'painel' in sync_type.lower().strip():
         # deleting all data from techfin
         sheet_utils.update_status(
