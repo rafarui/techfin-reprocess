@@ -39,7 +39,7 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
     app_name = "techfinplatform"
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
-    app_version = '0.2.7'
+    app_version = '0.2.8'
 
     if ignore_sheet:
         techfin_worksheet = None
