@@ -653,7 +653,7 @@ def enable_disable_storage_type(login, storage_type, enable, dm_name=None, dm_id
     url = f'v1/entities/templates/{dm_id}/storageType/{storage_type}'
     payload = {"mdmConsolidationTriggers": [],
                "mdmEnabled": enable, "mdmStorageType": storage_type}
-    return login.call_api(url, method='PUT', data=payload)
+    return login.call_api(url, method='PUT', data=payload)['data']
 
 
 def disable_all_rt_storage(login, logger=None):
@@ -663,7 +663,10 @@ def disable_all_rt_storage(login, logger=None):
 
     dm = DataModel(login)
     dms = dm.get_all().template_dict
+    all_tasks = []
     for dm_name, info in dms.items():
         logger.info(f'Disable RT for {dm_name} in {login.domain}')
-        enable_disable_storage_type(login, dm_id=info['mdmId'], storage_type='REALTIME', enable=False)
+        all_tasks.extend(enable_disable_storage_type(login, dm_id=info['mdmId'], storage_type='REALTIME', enable=False))
+    
+    return all_tasks
         
