@@ -29,7 +29,9 @@ In functions.carol_task.py
 25.  `get_relationship_constraints`: get relationship constraints from a data model
 26.  `remove_relationships`: remove relationships from a data model
 27.  `remove_relationships_and_delete_data_model`: remove relationship and delete a data model
-28.  `remove_dms` remove relationship and delete data models from a list
+28.  `remove_dms`: remove relationship and delete data models from a list
+29. `enable_disable_storage_type`: enable or disable a Carol storage type.4
+30. `disable_all_rt_storage`: Disable all the RT storage in a tenant.
 
 
 In functions.carol_apps.py

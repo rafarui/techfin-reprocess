@@ -207,7 +207,7 @@ def drop_single_etl(login, staging_name, connector_name, output_list, logger):
                 # Delete drafts.
                 login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
                                params={'entitySpace': 'WORKING'})
-            except Exception as e:
+            except Exception:
                 pass
             login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
                            params={'entitySpace': 'PRODUCTION'})
@@ -232,7 +232,7 @@ def drop_etls(login, etl_list):
             # Delete drafts.
             login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
                            params={'entitySpace': 'WORKING'})
-        except Exception as e:
+        except Exception:
             pass
         login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
                        params={'entitySpace': 'PRODUCTION'})
@@ -365,7 +365,7 @@ def pause_dms(login, dm_list, connector_name, do_not_pause_staging_list=None):
                            (i['mdmStagingType'] not in do_not_pause_staging_list)
                            ]
 
-    r = conn.pause_mapping(connector_name=connector_name,
+    _ = conn.pause_mapping(connector_name=connector_name,
                            entity_mapping_id=mappings)
 
 
@@ -564,7 +564,7 @@ def remove_relationships(login, dm_name, publish=True, logger=None):
 
     for rel in rels:
         mdm_id = rel['mdmId']
-        r = login.call_api(
+        _ = login.call_api(
             path=f'v1/relationship/mapping/{mdm_id}', method='DELETE')
         logger.debug(f'deleted relationship {mdm_id} in {login.domain}')
         time.sleep(0.2)
@@ -620,8 +620,50 @@ def remove_dms(login, dm_list, logger=None):
         logger = logging.getLogger(login.domain)
 
     for dm_name in dm_list:
-        r = remove_relationships_and_delete_data_model(
+        _ = remove_relationships_and_delete_data_model(
             login, dm_name, logger=logger)
         logger.debug(f"{dm_name} dropped from {login.domain}")
 
     return
+
+
+def enable_disable_storage_type(login, storage_type, enable, dm_name=None, dm_id=None):
+
+    """Enable or disable a Carol data storage
+
+    Args:
+        login (pycarol.Carol): Instance of Carol
+        storage_type (str): Possible values: 
+            1. 'CDS' Carol Data Storage - Block Storage
+            2. 'REALTIME' Realtime Layer - Elasticsearch
+            3.  'SQL' Carol Data Lake - SQL Format
+        enable (bool): `False` to disable a storage.
+        dm_name (str): DataModel name
+        dm_id (str): DataModel ID
+
+    Returns:
+        dict: Carol response
+    """
+
+    if dm_name is not None:
+        dm_id = DataModel(login).get_by_name(dm_name)['mdmId']
+    elif dm_id is None:
+        raise ValueError('Either dm_name or dm_id must be set.')
+
+    url = f'v1/entities/templates/{dm_id}/storageType/{storage_type}'
+    payload = {"mdmConsolidationTriggers": [],
+               "mdmEnabled": enable, "mdmStorageType": storage_type}
+    return login.call_api(url, method='PUT', data=payload)
+
+
+def disable_all_rt_storage(login, logger=None):
+    
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+
+    dm = DataModel(login)
+    dms = dm.get_all().template_dict
+    for dm_name, info in dms.items():
+        logger.info(f'Disable RT for {dm_name} in {login.domain}')
+        enable_disable_storage_type(login, dm_id=info['mdmId'], storage_type='REALTIME', enable=False)
+        
