@@ -1,7 +1,8 @@
 from pycarol import (
     Carol, ApiKeyAuth, PwdAuth, Tasks, Staging, Connectors, CDSStaging, Subscription, DataModel, Apps
 )
-
+from pycarol.exceptions import CarolApiResponseException
+from pycarol.data_models import CreateDataModel
 from pycarol import CDSGolden
 from pycarol.query import delete_golden
 from collections import defaultdict
@@ -63,7 +64,8 @@ def track_tasks(login, task_list, retry_count=3, logger=None, callback=None, ):
             retry_tasks[task] += 1
             if retry_tasks[task] > retry_count:
                 max_retries.update([task])
-                logger.error(f'Task: {task} failed {retry_count} times. will not restart')
+                logger.error(
+                    f'Task: {task} failed {retry_count} times. will not restart')
                 continue
 
             logger.info(f'Retry task: {task}')
@@ -188,16 +190,15 @@ def drop_single_etl(login, staging_name, connector_name, output_list, logger):
     Returns: None
 
     """
-    
+
     if logger is None:
         logger = logging.getLogger(login.domain)
-        
-        
+
     conn = Connectors(login)
     connector_id = conn.get_by_name(connector_name)['mdmId']
     url = f'v1/etl/connector/{connector_id}/sourceEntity/{staging_name}'
     all_etls = login.call_api(url, )
-    
+
     for etl in all_etls:
         if len(set(output_list) - set(misc.unroll_list(list(misc.find_keys(etl, 'mdmParameterValues'))))) == 0:
             mdm_id = etl['mdmId']
@@ -206,10 +207,11 @@ def drop_single_etl(login, staging_name, connector_name, output_list, logger):
                 # Delete drafts.
                 login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
                                params={'entitySpace': 'WORKING'})
-            except Exception as e:
+            except Exception:
                 pass
             login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
                            params={'entitySpace': 'PRODUCTION'})
+
 
 def drop_etls(login, etl_list):
     """
@@ -230,7 +232,7 @@ def drop_etls(login, etl_list):
             # Delete drafts.
             login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
                            params={'entitySpace': 'WORKING'})
-        except Exception as e:
+        except Exception:
             pass
         login.call_api(f'v2/etl/{mdm_id}', method='DELETE',
                        params={'entitySpace': 'PRODUCTION'})
@@ -363,7 +365,7 @@ def pause_dms(login, dm_list, connector_name, do_not_pause_staging_list=None):
                            (i['mdmStagingType'] not in do_not_pause_staging_list)
                            ]
 
-    r = conn.pause_mapping(connector_name=connector_name,
+    _ = conn.pause_mapping(connector_name=connector_name,
                            entity_mapping_id=mappings)
 
 
@@ -393,7 +395,7 @@ def consolidate_stagings(login, connector_name, staging_list, n_jobs=5, compute_
 
     task_id = Parallel(n_jobs=n_jobs, backend='threading')(delayed(par_consolidate)(
         login, staging_name=i,
-        connector_name=connector_name, auto_scaling=auto_scaling, 
+        connector_name=connector_name, auto_scaling=auto_scaling,
         compute_transformations=compute_transformations
     )
         for i in staging_list)
@@ -494,10 +496,9 @@ def cancel_task_subprocess(login):
         cancel_tasks(login, pross_task)
 
 
-
 def check_lookup(login, staging_name, connector_name):
     return Staging(login).get_schema(staging_name=staging_name,
-                                       connector_name=connector_name, )['mdmLookupTable']
+                                     connector_name=connector_name, )['mdmLookupTable']
 
 
 def change_app_settings(login, app_name, settings, logger=None):
@@ -529,3 +530,143 @@ def start_app_process(login, app_name, process_name, logger=None):
 
     a = app.start_app_process(app_name=app_name, process_name=process_name)
     return a
+
+
+def get_relationships(login, dm_name, entity_space='PRODUCTION',):
+    resp = login.call_api(
+        path=f'v1/relationship/mapping/direct/name/{dm_name}?entitySpace={entity_space}')
+    return resp
+
+
+def get_relationship_constraints(login, dm_name):
+    dm = DataModel(login)
+    snap = dm.get_by_name(dm_name)['mdmRelationshipConstraints']
+    return snap
+
+
+def remove_relationships(login, dm_name, publish=True, logger=None):
+    """Remove all relationships (normal and constraint) in a data demol
+
+    Args:
+        login (pycarol.Carol): Carol instance
+        dm_name (str): data model name
+        publish (bool, optional): publish data model after delete relationships. Defaults to True.
+        logger (logging.Logger, optional): Logger. Defaults to None.
+
+    """
+
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+
+    rels = login.call_api(
+        path=f'v1/relationship/mapping/direct/name/{dm_name}?entitySpace=PRODUCTION', method='GET')
+    rels += get_relationship_constraints(login, dm_name)
+
+    for rel in rels:
+        mdm_id = rel['mdmId']
+        _ = login.call_api(
+            path=f'v1/relationship/mapping/{mdm_id}', method='DELETE')
+        logger.debug(f'deleted relationship {mdm_id} in {login.domain}')
+        time.sleep(0.2)
+
+    c_dm = CreateDataModel(login)
+    dm_id = DataModel(login).get_by_name(dm_name)['mdmId']
+
+    if publish:
+        try:
+            c_dm.publish_template(dm_id)
+        except Exception as e:
+            if "Data model was not changed" in str(e):
+                pass
+            else:
+                raise e
+        logger.debug(f'Published {dm_name} for {login.domain}')
+
+
+def remove_relationships_and_delete_data_model(login, dm_name, logger=None):
+    """Remove a data model
+
+    Args:
+        login (pycarol.Carol): Instance of Carol
+        dm_name (str): data model name
+        logger (logging.Logger, optional): Logger to log information. Defaults to None.
+
+    Returns:
+        dict: carol response
+    """
+
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+
+    dm = DataModel(login)
+    try:
+        dm.get_by_name(dm_name)
+    except Exception as e:
+        if (
+            ("Template was not found with the name" in str(e)) or
+            ("The entity template is in Deleted state" in str(e))
+        ):
+            logger.debug(f'`{dm_name}` already deleted in {login.domain}')
+            return
+
+    remove_relationships(login, dm_name)
+    r = dm.delete(dm_name=dm_name, entity_space='PRODUCTION')
+    logger.debug(f'`{dm_name}` deleted in {login.domain}')
+    return r
+
+
+def remove_dms(login, dm_list, logger=None):
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+
+    for dm_name in dm_list:
+        _ = remove_relationships_and_delete_data_model(
+            login, dm_name, logger=logger)
+        logger.debug(f"{dm_name} dropped from {login.domain}")
+
+    return
+
+
+def enable_disable_storage_type(login, storage_type, enable, dm_name=None, dm_id=None):
+
+    """Enable or disable a Carol data storage
+
+    Args:
+        login (pycarol.Carol): Instance of Carol
+        storage_type (str): Possible values: 
+            1. 'CDS' Carol Data Storage - Block Storage
+            2. 'REALTIME' Realtime Layer - Elasticsearch
+            3.  'SQL' Carol Data Lake - SQL Format
+        enable (bool): `False` to disable a storage.
+        dm_name (str): DataModel name
+        dm_id (str): DataModel ID
+
+    Returns:
+        dict: Carol response
+    """
+
+    if dm_name is not None:
+        dm_id = DataModel(login).get_by_name(dm_name)['mdmId']
+    elif dm_id is None:
+        raise ValueError('Either dm_name or dm_id must be set.')
+
+    url = f'v1/entities/templates/{dm_id}/storageType/{storage_type}'
+    payload = {"mdmConsolidationTriggers": [],
+               "mdmEnabled": enable, "mdmStorageType": storage_type}
+    return login.call_api(url, method='PUT', data=payload)['data']
+
+
+def disable_all_rt_storage(login, logger=None):
+    
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+
+    dm = DataModel(login)
+    dms = dm.get_all().template_dict
+    all_tasks = []
+    for dm_name, info in dms.items():
+        logger.info(f'Disable RT for {dm_name} in {login.domain}')
+        all_tasks.extend(enable_disable_storage_type(login, dm_id=info['mdmId'], storage_type='REALTIME', enable=False))
+    
+    return all_tasks
+        

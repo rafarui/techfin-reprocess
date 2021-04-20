@@ -27,19 +27,23 @@ parser.add_argument("-o", '--org',
 parser.add_argument('--ignore-sheet', action='store_true',
                     help='Do not use google spreadsheet')
 
+parser.add_argument('--is-painel', action='store_true',
+                    help='Is a Painel techfin client')
+                    
+
 args = parser.parse_args()
 
 load_dotenv('.env', override=True)
 
 
-def run(domain, org='totvstechfin', ignore_sheet=False):
+def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
     # avoid all tasks starting at the same time.
 
     org = org
     app_name = "techfinplatform"
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
-    app_version = '0.2.7'
+    app_version = '0.2.8'
 
     if ignore_sheet:
         techfin_worksheet = None
@@ -66,9 +70,25 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
 
         ]}
 
-    # need to force the old data to the stagings transformation.
-    compute_transformations = True
-    auto_scaling = True
+    drop_data_models = [
+        'apbankbearer',
+        'apbankbearerlot',
+        'appaymentsbank',
+        'appaymentscard',
+        'appaymentscheckbook',
+        'apbankpayment',
+        'apcardpayment',
+        'apcheckbook',
+        'arbankbearer',
+        'arbankbearerlot',
+        'arpaymentscard',
+        'arpaymentscheckbook',
+        'arcardpayment',
+        'archeckbook',
+        'arappayments',
+        'cashflowevents',
+    ]
+
 
     # Create slack handler
     slack_handler = SlackerLogHandler(os.environ["SLACK"], '#techfin-reprocess',  # "@rafael.rui",
@@ -100,9 +120,6 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
     login = carol_login.get_login(domain, org, app_name)
     sheet_utils.update_start_time(techfin_worksheet, current_cell)
 
-    dag = list(reduce(set.union, custom_pipeline.get_dag()))
-    dms = [i.replace('DM_', '') for i in dag if i.startswith('DM_')]
-
     try:
         current_version = carol_apps.get_app_version(
             login, app_name, app_version)
@@ -112,6 +129,19 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
             techfin_worksheet, current_cell, "failed - fetching app version")
         return
 
+
+    # Drop DMs
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - drop DMs")
+    try:
+        carol_task.remove_dms(login, drop_data_models)
+    except Exception:
+        logger.error("error dropping Dms", exc_info=1)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - dropping Dms")
+        return
+
+    # Drop stagings
     sheet_utils.update_status(
         techfin_worksheet, current_cell, "running - drop stagings")
 
@@ -124,7 +154,7 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
         return
     try:
         task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
-    except Exception as e:
+    except Exception:
         logger.error("error dropping staging", exc_info=1)
         sheet_utils.update_status(
             techfin_worksheet, current_cell, "failed - dropping stagings")
@@ -177,16 +207,16 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
     if pross_task:
         carol_task.cancel_tasks(login, pross_task)
 
-
-    sync_type = sheet_utils.get_sync_type(techfin_worksheet, current_cell) or ''
-    if 'painel' in sync_type.lower().strip():
+    sync_type = sheet_utils.get_sync_type(
+        techfin_worksheet, current_cell) or ''
+    if 'painel' in sync_type.lower().strip() or is_painel:
         # deleting all data from techfin
         sheet_utils.update_status(
             techfin_worksheet, current_cell, "running - deleting DM from techfin")
 
         try:
             r = techfin_task.delete_and_track(login.domain, to_look=to_look, )
-        except Exception as e:
+        except Exception:
             logger.error("failed - deleting DM from techfin", exc_info=1)
             sheet_utils.update_status(
                 techfin_worksheet, current_cell, "failed - deleting DM from techfin")
@@ -208,7 +238,7 @@ def run(domain, org='totvstechfin', ignore_sheet=False):
     tasks = [task['data']['mdmId']]
     try:
         task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
-    except Exception as e:
+    except Exception:
         logger.error("failed - processAll", exc_info=1)
         sheet_utils.update_status(
             techfin_worksheet, current_cell, "failed - processAll")
@@ -231,7 +261,8 @@ if __name__ == "__main__":
 
     if args.tenant is not None:
         ignore_sheet = args.ignore_sheet
-        run(args.tenant, org=args.org, ignore_sheet=ignore_sheet)
+        is_painel = args.ignore_sheet
+        run(args.tenant, org=args.org, ignore_sheet=ignore_sheet, is_painel=is_painel)
 
     else:
         has_tenant = [1, 2, 3]
