@@ -665,8 +665,17 @@ def disable_all_rt_storage(login, logger=None):
     dms = dm.get_all().template_dict
     all_tasks = []
     for dm_name, info in dms.items():
-        logger.info(f'Disable RT for {dm_name} in {login.domain}')
+        logger.debug(f'Disable RT for {dm_name} in {login.domain}')
         all_tasks.extend(enable_disable_storage_type(login, dm_id=info['mdmId'], storage_type='REALTIME', enable=False))
     
     return all_tasks
+        
+
+def enable_data_decoration(login):
+    c = login.get_current()
+    login = copy.deepcopy(login)
+    login.switch_org_level()
+    info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='GET',)
+    info["mdmDataDecorationEnabled"] = True
+    info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='PUT', data=info)
         
