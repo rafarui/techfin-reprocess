@@ -4,7 +4,7 @@ import os
 import logging
 from requests.adapters import HTTPAdapter
 import time
-from pytechfin import Techfin, TOTVSRacAuth, TechfinDataModel
+from pytechfin import Techfin, TOTVSRacAuth, CarolSyncMonitoring
 from pytechfin.enums import EnumApps
 
 
@@ -134,7 +134,7 @@ def delete_and_track(tenant, to_look, threshold=0.1, logger=None):
     uuid_tenant = get_guid(tenant)
 
     tf = Techfin()
-    dm = TechfinDataModel(tf)
+    dm = CarolSyncMonitoring(tf)
     init_counter = dm.get_table_record_count(carol_tenant=tenant,
                                              techfin_app=EnumApps.CASHFLOW.value)
     
