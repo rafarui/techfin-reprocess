@@ -172,6 +172,17 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
                     techfin_worksheet, current_cell, "failed - dropping ETLs")
                 return
 
+    # Enable DD
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - enable DD")
+    try:
+        r = carol_task.enable_data_decoration(login)
+    except Exception:
+        logger.error("failed - enable DD", exc_info=1)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - enable DD")
+        return
+
     fail = False
     task_list = '__unk__'
     if current_version != app_version:

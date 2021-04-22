@@ -670,3 +670,10 @@ def disable_all_rt_storage(login, logger=None):
     
     return all_tasks
         
+
+def enable_data_decoration(login):
+    c = login.get_current()
+    login.switch_org_level()
+    info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='GET',)
+    info["mdmDataDecorationEnabled"] = True
+    info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='PUT', data=info)
