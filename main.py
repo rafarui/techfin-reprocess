@@ -173,6 +173,7 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
                 return
 
     # Enable DD
+    logger.info(f"Enabling DD for {login.domain}",)
     sheet_utils.update_status(
         techfin_worksheet, current_cell, "running - enable DD")
     try:
