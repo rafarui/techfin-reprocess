@@ -243,6 +243,7 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
 
     try:
         tasks = carol_task.disable_all_rt_storage(login=login, logger=logger)
+        tasks [i['mdmId'] for i in tasks]
         task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
     except Exception:
         logger.error("failed - removing RT", exc_info=1)
