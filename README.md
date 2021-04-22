@@ -32,6 +32,7 @@ In functions.carol_task.py
 28.  `remove_dms`: remove relationship and delete data models from a list
 29. `enable_disable_storage_type`: enable or disable a Carol storage type.4
 30. `disable_all_rt_storage`: Disable all the RT storage in a tenant.
+31. `enable_data_decoration`: enable data decoration for a tenant. 
 
 
 In functions.carol_apps.py

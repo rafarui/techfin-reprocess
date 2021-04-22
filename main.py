@@ -29,7 +29,7 @@ parser.add_argument('--ignore-sheet', action='store_true',
 
 parser.add_argument('--is-painel', action='store_true',
                     help='Is a Painel techfin client')
-                    
+
 
 args = parser.parse_args()
 
@@ -89,7 +89,6 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
         'cashflowevents',
     ]
 
-
     # Create slack handler
     slack_handler = SlackerLogHandler(os.environ["SLACK"], '#techfin-reprocess',  # "@rafael.rui",
                                       username='TechFinBot')
@@ -128,7 +127,6 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
         sheet_utils.update_status(
             techfin_worksheet, current_cell, "failed - fetching app version")
         return
-
 
     # Drop DMs
     sheet_utils.update_status(
@@ -173,6 +171,17 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
                 sheet_utils.update_status(
                     techfin_worksheet, current_cell, "failed - dropping ETLs")
                 return
+
+    # Enable DD
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - enable DD")
+    try:
+        r = carol_task.enable_data_decoration(login)
+    except Exception:
+        logger.error("failed - enable DD", exc_info=1)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - enable DD")
+        return
 
     fail = False
     task_list = '__unk__'
@@ -227,6 +236,24 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
                 techfin_worksheet, current_cell, "failed - deleting DM from techfin")
             return
 
+    # Remove RT
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - removing RT")
+
+    try:
+        tasks = carol_task.disable_all_rt_storage(login=login, logger=logger)
+        task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
+    except Exception:
+        logger.error("failed - removing RT", exc_info=1)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - removing RT")
+        return
+    if fail:
+        logger.info(f"'failed - removing RT'")
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - removing RT")
+        return
+
     # prepare process All
     sheet_utils.update_status(
         techfin_worksheet, current_cell, "running - processAll")
@@ -262,7 +289,8 @@ if __name__ == "__main__":
     if args.tenant is not None:
         ignore_sheet = args.ignore_sheet
         is_painel = args.ignore_sheet
-        run(args.tenant, org=args.org, ignore_sheet=ignore_sheet, is_painel=is_painel)
+        run(args.tenant, org=args.org,
+            ignore_sheet=ignore_sheet, is_painel=is_painel)
 
     else:
         has_tenant = [1, 2, 3]
