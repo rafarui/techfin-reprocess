@@ -678,3 +678,12 @@ def enable_data_decoration(login):
     info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='GET',)
     info["mdmDataDecorationEnabled"] = True
     info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='PUT', data=info)
+
+
+def change_intake_topic(login, topic):
+    c = login.get_current()
+    login = copy.deepcopy(login)
+    login.switch_org_level()
+    info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='GET',)
+    info["mdmProcessingTopicOverride"] = topic
+    info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='PUT', data=info)

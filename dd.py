@@ -44,6 +44,7 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
     app_version = '0.2.8'
+    topic = "staging-techfin-decoration"
 
     if ignore_sheet:
         techfin_worksheet = None
@@ -182,6 +183,19 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
         logger.error("failed - enable DD", exc_info=1)
         sheet_utils.update_status(
             techfin_worksheet, current_cell, "failed - enable DD")
+        return
+
+
+    # change intake topic
+    logger.info(f"change intake topic for {login.domain}",)
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - enable DD")
+    try:
+        r = carol_task.change_intake_topic(login, topic)
+    except Exception:
+        logger.error("failed - change intake topic", exc_info=1)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - change intake topic")
         return
 
     fail = False

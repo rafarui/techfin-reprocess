@@ -33,6 +33,7 @@ In functions.carol_task.py
 29. `enable_disable_storage_type`: enable or disable a Carol storage type.4
 30. `disable_all_rt_storage`: Disable all the RT storage in a tenant.
 31. `enable_data_decoration`: enable data decoration for a tenant. 
+32. `change_intake_topic`: change intake topic for a tenant.
 
 
 In functions.carol_apps.py
