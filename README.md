@@ -34,7 +34,8 @@ In functions.carol_task.py
 30. `disable_all_rt_storage`: Disable all the RT storage in a tenant.
 31. `enable_data_decoration`: enable data decoration for a tenant. 
 32. `change_intake_topic`: change intake topic for a tenant.
-
+33. `get_mapping_from_staing`: Get publushed mapping information given staging name."
+34. `create_mapping_from_snapshot`: Creates a mapping from snapshot
 
 In functions.carol_apps.py
 

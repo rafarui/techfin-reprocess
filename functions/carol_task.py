@@ -15,6 +15,7 @@ from pycarol.exceptions import CarolApiResponseException
 from functions import misc
 import copy
 
+
 def cancel_tasks(login, task_list, logger=None):
     """Cancell tasks from Carol
 
@@ -628,7 +629,6 @@ def remove_dms(login, dm_list, logger=None):
 
 
 def enable_disable_storage_type(login, storage_type, enable, dm_name=None, dm_id=None):
-
     """Enable or disable a Carol data storage
 
     Args:
@@ -657,7 +657,7 @@ def enable_disable_storage_type(login, storage_type, enable, dm_name=None, dm_id
 
 
 def disable_all_rt_storage(login, logger=None):
-    
+
     if logger is None:
         logger = logging.getLogger(login.domain)
 
@@ -666,10 +666,11 @@ def disable_all_rt_storage(login, logger=None):
     all_tasks = []
     for dm_name, info in dms.items():
         logger.debug(f'Disable RT for {dm_name} in {login.domain}')
-        all_tasks.extend(enable_disable_storage_type(login, dm_id=info['mdmId'], storage_type='REALTIME', enable=False))
-    
+        all_tasks.extend(enable_disable_storage_type(
+            login, dm_id=info['mdmId'], storage_type='REALTIME', enable=False))
+
     return all_tasks
-        
+
 
 def enable_data_decoration(login):
     c = login.get_current()
@@ -677,7 +678,8 @@ def enable_data_decoration(login):
     login.switch_org_level()
     info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='GET',)
     info["mdmDataDecorationEnabled"] = True
-    info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='PUT', data=info)
+    info = login.call_api(
+        path=f"v1/tenants/{c['env_id']}", method='PUT', data=info)
 
 
 def change_intake_topic(login, topic):
@@ -686,4 +688,131 @@ def change_intake_topic(login, topic):
     login.switch_org_level()
     info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='GET',)
     info["mdmProcessingTopicOverride"] = topic
-    info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='PUT', data=info)
+    info = login.call_api(
+        path=f"v1/tenants/{c['env_id']}", method='PUT', data=info)
+
+
+def get_snapshot_from_mom(login):
+    """Get snapshot from tenant.
+
+    Args:
+        login (pycarol.Carol): Carol instance
+
+    Returns:
+        dict: mapping definition.
+    """
+    with login.switch_context(env_name='masterofmaster', org_name='totvstechfindev', app_name="techfinplatform") as masterofmaster:
+        staging_name = 'paymentstype'
+        connector_id = Connectors(masterofmaster).get_by_name(
+            'protheus_carol')['mdmId']
+        mapping = get_mapping_from_staing(
+            masterofmaster, staging_name, connector_id=connector_id, )
+        stag = Staging(masterofmaster)
+        mapping_id = mapping[0]['mdmId']
+        mappings_to_get = stag.get_mapping_snapshot(
+            connector_id=connector_id, mapping_id=mapping_id,)
+        mappings_to_get = mappings_to_get.pop(None)
+    return mappings_to_get
+
+
+def get_mapping_from_staing(login, staging_name, connector_name=None, connector_id=None, ):
+    """Get publushed mapping information given staging name."
+
+    Args:
+        login ([type]): [description]
+        staging_name (str): Staging name to send the data.
+        connector_name (str, optional): Connector name. Defaults to None.
+        connector_id (str, optional): Connector ID. Defaults to None.
+
+
+    Raises:
+        ValueError: [description]
+
+    Returns:
+        [list]: list of mappings for that staging.
+    """
+
+    if (connector_name is None) and (connector_id is None):
+        raise ValueError('Either connector_id or connector_name must be set.')
+
+    connector_id = connector_id or Connectors(
+        login).get_by_name(connector_name)['mdmId']
+    params = dict(
+        reverseMapping=False,
+        stagingType=staging_name,
+        pageSize=-1,
+        sortOrder='ASC'
+    )
+    mapping = login.call_api(
+        f'v1/connectors/{connector_id}/entityMappings/published', method='GET', params=params)['hits']
+    return mapping
+
+
+def create_mapping_from_snapshot(login, mapping_snapshot, connector_id=None, connector_name=None, overwrite=True):
+    """Creates a mapping from snapshot
+
+    Args:
+        login ([type]): [description]
+        mapping_snapshot (dict): Mapping snapshot.
+        connector_name (str, optional): Connector name. Defaults to None.
+        connector_id (str, optional): Connector ID. Defaults to None.
+        overwrite (bool, optional): [description]. Defaults to True.
+
+    Raises:
+        ValueError: [description]
+
+    Returns:
+        [dict]: Carol's response.
+    """
+    if (connector_name is None) and (connector_id is None):
+        raise ValueError('Either connector_id or connector_name must be set.')
+
+    connector_id = connector_id or Connectors(
+        login).get_by_name(connector_name)['mdmId']
+    stg_to = Staging(login)
+    r = stg_to.mapping_from_snapshot(mapping_snapshot=mapping_snapshot, connector_id=connector_id,
+                                     overwrite=overwrite)
+    return r
+
+
+def get_mapping_and_publish(login, connector_name, logger=None):
+    if logger is None:
+        logger = logging.getLogger(login.domain)
+    mapping = get_snapshot_from_mom(login)
+    connector_name = 'protheus_carol'
+    logger.debug(f'coping mapping tenant {login.domain}')
+    create_mapping_from_snapshot(
+        login, mapping_snapshot=mapping, connector_name=connector_name)
+
+
+def get_staging_from_different_tenant(login, staging_name, connector_name, env_name, org_name, app_name,
+                                      max_workers=None, columns=None, return_metadata=False, merge_records=True):
+    with login.switch_context(env_name=env_name, org_name=org_name, app_name=app_name) as source:
+        stag = Staging(source)
+        df = stag.fetch_parquet(
+            staging_name=staging_name, connector_name=connector_name, max_workers=max_workers,
+            columns=columns, merge_records=merge_records,
+            return_metadata=return_metadata,
+        )
+
+    return df
+
+
+def send_data_to_tenant_from_source(
+        login, staging_name, connector_name, env_name, org_name, app_name,
+        max_workers=None, columns=None, return_metadata=False, merge_records=True,  
+        async_send=False, step_size=500,
+):
+
+    df = get_staging_from_different_tenant(
+        login, staging_name, connector_name, env_name, org_name, app_name=app_name,
+        max_workers=max_workers, columns=columns, return_metadata=return_metadata, merge_records=merge_records,
+
+    )
+    stag = Staging(login)
+    stag.send_data(staging_name,
+                   data=df,
+                   connector_name=connector_name,
+                   step_size=step_size,
+                   max_workers=max_workers,
+                   async_send=async_send,)

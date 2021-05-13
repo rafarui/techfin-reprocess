@@ -71,6 +71,10 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
 
         ]}
 
+    to_del_staging = [
+        'paymentstype',
+    ]
+
     drop_data_models = [
         'apbankbearer',
         'apbankbearerlot',
@@ -173,6 +177,27 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
                     techfin_worksheet, current_cell, "failed - dropping ETLs")
                 return
 
+    # delete stagings.
+    logger.debug(f"running -  delete stagings {domain}")
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - delete stagings")
+
+    task_list = carol_task.par_delete_staging(
+        login, staging_list=to_del_staging, connector_name=connector_name, n_jobs=1)
+    try:
+        task_list, fail = carol_task.track_tasks(
+            login, task_list, logger=logger)
+    except:
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - delete stagings")
+        logger.error("error after delete stagings", exc_info=1)
+        return
+    if fail:
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - delete stagings")
+        logger.error("error after delete stagings")
+        return
+
     # Enable DD
     logger.info(f"Enabling DD for {login.domain}",)
     sheet_utils.update_status(
@@ -184,7 +209,6 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
         sheet_utils.update_status(
             techfin_worksheet, current_cell, "failed - enable DD")
         return
-
 
     # change intake topic
     logger.info(f"change intake topic for {login.domain}",)
@@ -269,6 +293,35 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
         sheet_utils.update_status(
             techfin_worksheet, current_cell, "failed - removing RT")
         return
+
+    # send paymenttype
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - send paymenttype")
+
+    try:
+        carol_task.send_data_to_tenant_from_source(
+            login, 'paymentstype', 'protheus_carol', 'masterofmaster', 'totvstechfindev', app_name,
+            max_workers=None, columns=None, return_metadata=False, merge_records=True,
+            async_send=False, step_size=500,
+        )
+    except Exception:
+        logger.error("failed - send paymenttype", exc_info=1)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - send paymenttype")
+        return
+
+    # get_payment mapping
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - copy mapping paymenttype")
+
+    try:
+        carol_task.get_mapping_and_publish(login, connector_name, logger=logger)
+    except Exception:
+        logger.error("failed - copy mapping paymenttype", exc_info=1)
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - copy mapping paymenttype")
+        return
+
 
     # prepare process All
     sheet_utils.update_status(
