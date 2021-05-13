@@ -73,8 +73,8 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
 
     to_del_staging = [
         'paymentstype',
-        'sf2_consulta','sf1_consulta','sea_1_frv_descontado_naodeletado_bankpayment',
-        'sea_1_frv_descontado_deletado_bankpayment','sd1_consulta','fk5_estorno_bordero_pagamento_payments_lk','fk5_bordero_recebimento_payments_lk',
+        'sf2_consulta', 'sf1_consulta', 'sea_1_frv_descontado_naodeletado_bankpayment',
+        'sea_1_frv_descontado_deletado_bankpayment', 'sd1_consulta', 'fk5_estorno_bordero_pagamento_payments_lk', 'fk5_bordero_recebimento_payments_lk',
         'cvd_contas_avaliadas'
     ]
 
@@ -97,23 +97,15 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
         'cashflowevents',
     ]
 
-    to_del_dms = ['apinvoiceaccounting',
-                  'apinvoice',
-                  'arinvoice',
-                  'arinvoiceinstallment',
-                  'apinvoicepayments',
-                  'arinvoicebra',
-                  'arinvoiceaccounting',
-                  'apinvoiceinstallment',
-                  'apinvoicebra',
-                  'arinvoiceorigin',
-                  'arinvoicepartner',
-                  'arinvoicepayments',
-
-                  ]
+    to_del_dms = ['organization', 'arinvoicepayments', 'arpaymentstype', 'arpaymentsbank',
+                  'mapping', 'mdaddress', 'cfbankbalance', 'company', 'arinvoiceaccounting', 
+                  'mdaccount', 'mdcurrency', 'apinvoicepayments', 'arinvoicebra', 'apinvoicebra', 'mdfinancialcategory',
+                   'arbankpayment', 'fndbankaccount', 'arinvoiceorigin', 
+                   'mdbusinesspartnerdocreference', 'arinvoicepartner', 'mdcostcenter', 'mdbankaccount', 'mdbusinesspartner', 'mddocreference', 'mdbusinesspartnergroup',
+                  'arinvoiceinstallment', 'apinvoiceinstallment', 'apinvoice', 'arinvoice', 'apinvoiceaccounting']
 
     consolidate_list = [
-        'fk7','fkc', 'frv','invoicexml','protheus_sharing','sd2','sf4'
+        'fk7', 'fkc', 'frv', 'invoicexml', 'protheus_sharing', 'sd2', 'sf4'
     ]
     compute_transformations = True
     auto_scaling = True
@@ -380,13 +372,13 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
         techfin_worksheet, current_cell, "running - copy mapping paymenttype")
 
     try:
-        carol_task.get_mapping_and_publish(login, connector_name, logger=logger)
+        carol_task.get_mapping_and_publish(
+            login, connector_name, logger=logger)
     except Exception:
         logger.error("failed - copy mapping paymenttype", exc_info=1)
         sheet_utils.update_status(
             techfin_worksheet, current_cell, "failed - copy mapping paymenttype")
         return
-
 
     # prepare process All
     sheet_utils.update_status(
