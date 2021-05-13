@@ -9,7 +9,7 @@ def get_client():
     # gc = gspread.oauth()
     gc = gspread.service_account(filename='cred.json')
     sh = gc.open("status_techfin_reprocess")
-    techfin_worksheet = sh.worksheet("status")
+    techfin_worksheet = sh.worksheet("dd")
     return techfin_worksheet
 
 
