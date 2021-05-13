@@ -73,6 +73,9 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
 
     to_del_staging = [
         'paymentstype',
+        'sf2_consulta','sf1_consulta','sea_1_frv_descontado_naodeletado_bankpayment',
+        'sea_1_frv_descontado_deletado_bankpayment','sd1_consulta','fk5_estorno_bordero_pagamento_payments_lk','fk5_bordero_recebimento_payments_lk',
+        'cvd_contas_avaliadas'
     ]
 
     drop_data_models = [
@@ -93,6 +96,27 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
         'arappayments',
         'cashflowevents',
     ]
+
+    to_del_dms = ['apinvoiceaccounting',
+                  'apinvoice',
+                  'arinvoice',
+                  'arinvoiceinstallment',
+                  'apinvoicepayments',
+                  'arinvoicebra',
+                  'arinvoiceaccounting',
+                  'apinvoiceinstallment',
+                  'apinvoicebra',
+                  'arinvoiceorigin',
+                  'arinvoicepartner',
+                  'arinvoicepayments',
+
+                  ]
+
+    consolidate_list = [
+        'fk7','fkc', 'frv','invoicexml','protheus_sharing','sd2','sf4'
+    ]
+    compute_transformations = True
+    auto_scaling = True
 
     # Create slack handler
     slack_handler = SlackerLogHandler(os.environ["SLACK"], '#techfin-reprocess',  # "@rafael.rui",
@@ -196,6 +220,47 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
         sheet_utils.update_status(
             techfin_worksheet, current_cell, "failed - delete stagings")
         logger.error("error after delete stagings")
+        return
+
+    # delete DMs
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - delete DMs")
+    task_list = carol_task.par_delete_golden(
+        login, dm_list=to_del_dms, n_jobs=1)
+    try:
+        task_list, fail = carol_task.track_tasks(
+            login, task_list, logger=logger)
+    except:
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - delete DMs")
+        logger.error("error after delete DMs", exc_info=1)
+        return
+    if fail:
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - delete DMs")
+        logger.error("error after delete DMs")
+        return
+
+    # consolidate
+    logger.debug(f"running - consolidate for {domain}")
+    sheet_utils.update_status(
+        techfin_worksheet, current_cell, "running - consolidate")
+    task_list = carol_task.consolidate_stagings(login, connector_name=connector_name, staging_list=consolidate_list,
+                                                n_jobs=1, logger=logger, auto_scaling=auto_scaling,
+                                                compute_transformations=compute_transformations)
+
+    try:
+        task_list, fail = carol_task.track_tasks(
+            login, task_list, logger=logger)
+    except:
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - consolidate")
+        logger.error("error after consolidate", exc_info=1)
+        return
+    if fail:
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "failed - consolidate")
+        logger.error("error after consolidate")
         return
 
     # Enable DD
