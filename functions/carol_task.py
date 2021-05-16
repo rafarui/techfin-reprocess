@@ -672,20 +672,25 @@ def disable_all_rt_storage(login, logger=None):
     return all_tasks
 
 
-def enable_data_decoration(login):
+def enable_data_decoration(login, topic=None, use_org_level=True):
     c = login.get_current()
     login = copy.deepcopy(login)
-    login.switch_org_level()
+    if use_org_level:
+        login.switch_org_level()
     info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='GET',)
     info["mdmDataDecorationEnabled"] = True
+    if topic is not None:
+        info["mdmProcessingTopicOverride"] = topic
+
     info = login.call_api(
         path=f"v1/tenants/{c['env_id']}", method='PUT', data=info)
 
 
-def change_intake_topic(login, topic):
+def change_intake_topic(login, topic, use_org_level=True):
     c = login.get_current()
     login = copy.deepcopy(login)
-    login.switch_org_level()
+    if use_org_level:
+        login.switch_org_level()
     info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='GET',)
     info["mdmProcessingTopicOverride"] = topic
     info = login.call_api(

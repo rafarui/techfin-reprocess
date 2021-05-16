@@ -260,23 +260,11 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
     sheet_utils.update_status(
         techfin_worksheet, current_cell, "running - enable DD")
     try:
-        r = carol_task.enable_data_decoration(login)
+        r = carol_task.enable_data_decoration(login, topic=topic, use_org_level=False)
     except Exception:
         logger.error("failed - enable DD", exc_info=1)
         sheet_utils.update_status(
             techfin_worksheet, current_cell, "failed - enable DD")
-        return
-
-    # change intake topic
-    logger.info(f"change intake topic for {login.domain}",)
-    sheet_utils.update_status(
-        techfin_worksheet, current_cell, "running - enable DD")
-    try:
-        r = carol_task.change_intake_topic(login, topic)
-    except Exception:
-        logger.error("failed - change intake topic", exc_info=1)
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell, "failed - change intake topic")
         return
 
     fail = False
