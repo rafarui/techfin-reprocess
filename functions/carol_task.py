@@ -672,13 +672,15 @@ def disable_all_rt_storage(login, logger=None):
     return all_tasks
 
 
-def enable_data_decoration(login, topic=None, use_org_level=True):
+def enable_data_decoration(login, topic=None, use_org_level=True, activate_sql=True):
     c = login.get_current()
     login = copy.deepcopy(login)
     if use_org_level:
         login.switch_org_level()
     info = login.call_api(path=f"v1/tenants/{c['env_id']}", method='GET',)
     info["mdmDataDecorationEnabled"] = True
+    if activate_sql:
+        info["mdmSQLonCDSEnabled"] = True
     if topic is not None:
         info["mdmProcessingTopicOverride"] = topic
 
