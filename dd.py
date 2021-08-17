@@ -43,7 +43,7 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
     app_name = "techfinplatform"
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
-    app_version = '0.2.9'
+    app_version = '0.2.14'
     topic = "staging-techfin-decoration"
 
     if ignore_sheet:
