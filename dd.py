@@ -56,7 +56,8 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
     app_settings = {'clean_dm': True, 'clean_etls': True, 'skip_pause': False}
 
     to_drop_stagings = ['se1_acresc', 'cv3_outros',
-                        'se1_decresc', 'se2_acresc', 'se2_decresc']
+                        'se1_decresc', 'se2_acresc', 'se2_decresc',
+                        'company_organization']
 
     to_look = ['arInvoices', 'apInvoices',
                'mdCurrencies', 'mdBusinessPartners', ]
@@ -69,7 +70,11 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
             {'se2_decresc', },
             {'se2_acresc', }
 
-        ]}
+        ],
+        'company': [
+            {'company_organization', },
+        ]
+        }
 
     to_del_staging = [
         'paymentstype',
