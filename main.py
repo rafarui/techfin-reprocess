@@ -43,7 +43,7 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
     app_name = "techfinplatform"
     connector_name = 'protheus_carol'
     connector_group = 'protheus'
-    app_version = '0.2.8'
+    app_version = '0.2.14'
 
     if ignore_sheet:
         techfin_worksheet = None
@@ -55,7 +55,8 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
     app_settings = {'clean_dm': True, 'clean_etls': True, 'skip_pause': False}
 
     to_drop_stagings = ['se1_acresc', 'cv3_outros',
-                        'se1_decresc', 'se2_acresc', 'se2_decresc']
+                        'se1_decresc', 'se2_acresc', 'se2_decresc',
+                        'company_organization']
 
     to_look = ['arInvoices', 'apInvoices',
                'mdCurrencies', 'mdBusinessPartners', ]
@@ -68,7 +69,11 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
             {'se2_decresc', },
             {'se2_acresc', }
 
-        ]}
+        ],
+        'company': [
+            {'company_organization', },
+        ]
+        }
 
     drop_data_models = [
         'apbankbearer',
@@ -261,7 +266,7 @@ if __name__ == "__main__":
 
     if args.tenant is not None:
         ignore_sheet = args.ignore_sheet
-        is_painel = args.ignore_sheet
+        is_painel = args.is_painel
         run(args.tenant, org=args.org, ignore_sheet=ignore_sheet, is_painel=is_painel)
 
     else:
