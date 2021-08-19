@@ -53,7 +53,7 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
         techfin_worksheet = sheet_utils.get_client()
 
     process_name = 'processAll'
-    app_settings = {'clean_dm': True, 'clean_etls': True, 'skip_pause': False, 'force_paused': True}}
+    app_settings = {'clean_dm': True, 'clean_etls': True, 'skip_pause': False, 'force_paused': True}
 
     to_drop_stagings = ['se1_acresc', 'cv3_outros',
                         'se1_decresc', 'se2_acresc', 'se2_decresc',]
