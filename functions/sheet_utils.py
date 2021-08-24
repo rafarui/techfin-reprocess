@@ -40,6 +40,13 @@ def get_sync_type(techfin_worksheet, row):
     col = 4
     return techfin_worksheet.cell(row, col).value
 
+def get_col5(techfin_worksheet, row):
+    if techfin_worksheet is None:
+        return
+    time.sleep(round(1 + random.random() * 3, 2))
+    col = 5
+    return techfin_worksheet.cell(row, col).value
+
 
 def update_task_id(techfin_worksheet, row, status):
     if techfin_worksheet is None:

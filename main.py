@@ -208,47 +208,53 @@ def run(domain, org='totvstechfin', ignore_sheet=False, is_painel=False):
     if pross_task:
         carol_task.cancel_tasks(login, pross_task)
 
-    sync_type = sheet_utils.get_sync_type(
-        techfin_worksheet, current_cell) or ''
-    if 'painel' in sync_type.lower().strip() or is_painel:
-        # deleting all data from techfin
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell, "running - deleting DM from techfin")
 
+    use_process_all = sheet_utils.get_col5(techfin_worksheet, current_cell) or ''
+
+    if use_process_all.lower() != 'false':
+        sync_type = sheet_utils.get_sync_type(
+            techfin_worksheet, current_cell) or ''
+        if 'painel' in sync_type.lower().strip() or is_painel:
+            # deleting all data from techfin
+            sheet_utils.update_status(
+                techfin_worksheet, current_cell, "running - deleting DM from techfin")
+
+            try:
+                r = techfin_task.delete_and_track(login.domain, to_look=to_look, )
+            except Exception:
+                logger.error("failed - deleting DM from techfin", exc_info=1)
+                sheet_utils.update_status(
+                    techfin_worksheet, current_cell, "failed - deleting DM from techfin")
+                return
+            if r:
+                logger.error("failed - deleting DM from techfin",)
+                sheet_utils.update_status(
+                    techfin_worksheet, current_cell, "failed - deleting DM from techfin")
+                return
+
+        # prepare process All
+        sheet_utils.update_status(
+            techfin_worksheet, current_cell, "running - processAll")
+        carol_task.change_app_settings(
+            login=login, app_name=app_name, settings=app_settings)
+
+        task = carol_task.start_app_process(
+            login, app_name=app_name, process_name=process_name)
+        tasks = [task['data']['mdmId']]
         try:
-            r = techfin_task.delete_and_track(login.domain, to_look=to_look, )
+            task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
         except Exception:
-            logger.error("failed - deleting DM from techfin", exc_info=1)
+            logger.error("failed - processAll", exc_info=1)
             sheet_utils.update_status(
-                techfin_worksheet, current_cell, "failed - deleting DM from techfin")
+                techfin_worksheet, current_cell, "failed - processAll")
             return
-        if r:
-            logger.error("failed - deleting DM from techfin",)
+        if fail:
+            logger.info(f"'failed - processAll'")
             sheet_utils.update_status(
-                techfin_worksheet, current_cell, "failed - deleting DM from techfin")
+                techfin_worksheet, current_cell, "failed - processAll")
             return
-
-    # prepare process All
-    sheet_utils.update_status(
-        techfin_worksheet, current_cell, "running - processAll")
-    carol_task.change_app_settings(
-        login=login, app_name=app_name, settings=app_settings)
-
-    task = carol_task.start_app_process(
-        login, app_name=app_name, process_name=process_name)
-    tasks = [task['data']['mdmId']]
-    try:
-        task_list, fail = carol_task.track_tasks(login, tasks, logger=logger)
-    except Exception:
-        logger.error("failed - processAll", exc_info=1)
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell, "failed - processAll")
-        return
-    if fail:
-        logger.info(f"'failed - processAll'")
-        sheet_utils.update_status(
-            techfin_worksheet, current_cell, "failed - processAll")
-        return
+    else: 
+        logger.info(f"not running processAll")
 
     logger.info(f"Finished all process {domain}")
     sheet_utils.update_status(techfin_worksheet, current_cell, "Done")
