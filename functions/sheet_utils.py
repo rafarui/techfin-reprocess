@@ -16,11 +16,14 @@ def get_client():
 def find_tenant(techfin_worksheet, domain):
     if techfin_worksheet is None:
         return
-    time.sleep(round(1 + random.random() * 3, 2))
+    time.sleep(round(1 + random.random() * 2, 2))
 
     try:
-        match = techfin_worksheet.find(domain)
-        return match
+        match = techfin_worksheet.findall(domain)
+        if match:
+            return match[-1]
+        else: 
+            return
     except gspread.CellNotFound:
         return
 
